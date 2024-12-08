@@ -101,3 +101,7 @@ def delete_pledge(name: str):
             
     return 0
 
+def get_points_file():
+    # Return the points file name
+    return 'Points.csv'
+
