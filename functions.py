@@ -1,5 +1,10 @@
 import pandas as pd 
 import time
+import os
+from datetime import datetime
+from logging import getLogger
+
+logger = getLogger(__name__)
 
 def check_pledge(name):
     with open('pledges.csv', 'r') as fil:
@@ -10,16 +15,40 @@ def check_pledge(name):
             return False
 
 def get_points_csv():
-    df = pd.read_csv("Points.csv")
+    try:
+        if not os.path.exists("Points.csv"):
+            # Create new DataFrame with all required columns
+            df = pd.DataFrame(columns=["Time", "Name", "Point_Change", "Comments"])
+            df.to_csv("Points.csv", index=False)
+        else:
+            df = pd.read_csv("Points.csv")
+            # Add Comments column if it doesn't exist
+            if "Comments" not in df.columns:
+                df["Comments"] = ""
+                df.to_csv("Points.csv", index=False)
+    except Exception as e:
+        logger.error(f"Error in get_points_csv: {str(e)}")
+        # Return empty DataFrame with correct columns if there's an error
+        return pd.DataFrame(columns=["Time", "Name", "Point_Change", "Comments"])
     return df
 
-def update_points(name, point_change):
-    if check_pledge(name):
-        df = get_points_csv()
-        df.loc[len(df)] = [time.time(), name, point_change]
-        df.to_csv("Points.csv", index=False)
-        result = 0
-    else:
+def update_points(name, point_change, comment=None):
+    try:
+        if check_pledge(name):
+            df = get_points_csv()
+            new_row = {
+                "Time": time.time(),
+                "Name": name,
+                "Point_Change": point_change,
+                "Comments": comment if comment is not None else ""
+            }
+            df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
+            df.to_csv("Points.csv", index=False)
+            result = 0
+        else:
+            result = 1
+    except Exception as e:
+        logger.error(f"Error in update_points: {str(e)}")
         result = 1
     return result
 
@@ -66,22 +95,32 @@ def get_points_graph():
     return filename
 
 def get_ranked_pledges():
-    # Get all pledges and their points
-    pledges = get_pledges()
-    pledge_points = []
-    for pledge in pledges:
-        points = get_pledge_points(pledge)
-        pledge_points.append((pledge, points))
-    
-    # Sort by points in descending order
-    ranked_pledges = sorted(pledge_points, key=lambda x: x[1], reverse=True)
-    
-    # Format into list of strings
-    formatted_rankings = []
-    for i, (pledge, points) in enumerate(ranked_pledges, 1):
-        formatted_rankings.append(f"{i}. {pledge}: {points} points")
+    try:
+        # Get all pledges and their points
+        pledges = get_pledges()
+        pledge_points = []
+        df = get_points_csv()
         
-    return formatted_rankings
+        for pledge in pledges:
+            points = get_pledge_points(pledge)
+            # Get the most recent comment
+            pledge_df = df[df["Name"] == pledge]
+            recent_comment = pledge_df.iloc[-1]["Comments"] if not pledge_df.empty else ""
+            pledge_points.append((pledge, points, recent_comment))
+        
+        # Sort by points in descending order
+        ranked_pledges = sorted(pledge_points, key=lambda x: x[1], reverse=True)
+        
+        # Format into list of strings
+        formatted_rankings = []
+        for i, (pledge, points, comment) in enumerate(ranked_pledges, 1):
+            comment_text = f" ({comment})" if comment else ""
+            formatted_rankings.append(f"{i}. {pledge}: {points} points{comment_text}")
+            
+        return formatted_rankings
+    except Exception as e:
+        logger.error(f"Error in get_ranked_pledges: {str(e)}")
+        return ["Error retrieving rankings"]
 
 def delete_pledge(name: str):
     # Read all pledges
@@ -143,4 +182,47 @@ def get_points_over_time():
     plt.savefig(filename)
     plt.close()
     return filename
+
+def get_recent_logs(hours: int = 24) -> tuple[list[str], str]:
+    """
+    Retrieve logs from the past specified hours.
+    Returns tuple of (log_lines, error_message).
+    If error_message is not empty, log_lines will be empty.
+    """
+    try:
+        now = time.time()
+        past_time = now - (hours * 60 * 60)
+        
+        if not os.path.exists('bot.log'):
+            return [], "Log file does not exist."
+            
+        with open('bot.log', 'r') as f:
+            logs = f.readlines()
+            
+        if not logs:
+            return [], "Log file is empty."
+            
+        recent_logs = []
+        for line in logs:
+            try:
+                timestamp = line.split(' - ')[0].strip()
+                log_time = time.mktime(datetime.strptime(timestamp, '%Y-%m-%d %H:%M:%S,%f').timetuple())
+                if log_time >= past_time:
+                    recent_logs.append(line)
+            except Exception as e:
+                logger.error(f"Error processing log line '{line}': {str(e)}")
+                continue
+                
+        if not recent_logs:
+            return [], (f"No logs found from the past {hours} hours.\n"
+                       f"Current time: {datetime.fromtimestamp(now)}\n"
+                       f"Looking for logs after: {datetime.fromtimestamp(past_time)}")
+            
+        # Sort logs in reverse chronological order
+        recent_logs.sort(reverse=True)
+        return recent_logs, ""
+        
+    except Exception as e:
+        logger.error(f"Error retrieving logs: {str(e)}")
+        return [], f"An error occurred while retrieving logs: {str(e)}"
 

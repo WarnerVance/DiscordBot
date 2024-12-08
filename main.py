@@ -1,3 +1,4 @@
+import os
 import discord
 from discord.ext import commands, tasks
 from discord import app_commands
@@ -10,6 +11,14 @@ from datetime import datetime, time as datetime_time
 import pytz
 import logging
 import time
+
+# Add custom logging level for commands
+COMMAND_LEVEL = 25  # Between INFO (20) and WARNING (30)
+logging.addLevelName(COMMAND_LEVEL, 'COMMAND')
+def command(self, message, *args, **kwargs):
+    if self.isEnabledFor(COMMAND_LEVEL):
+        self._log(COMMAND_LEVEL, message, args, **kwargs)
+logging.Logger.command = command
 
 # Add logging configuration
 logging.basicConfig(
@@ -62,8 +71,22 @@ def timeout_command(seconds=10):
         return wrapper
     return decorator
 
+# Add this decorator function for command logging
+def log_command():
+    def decorator(func):
+        @functools.wraps(func)
+        async def wrapper(interaction: discord.Interaction, *args, **kwargs):
+            command_name = func.__name__
+            user = interaction.user.display_name
+            guild = interaction.guild.name if interaction.guild else "DM"
+            logger.command(f"Command '{command_name}' executed by {user} in {guild} with args: {args} kwargs: {kwargs}")
+            return await func(interaction, *args, **kwargs)
+        return wrapper
+    return decorator
+
 # Convert commands to slash commands
 @bot.tree.command(name="add_pledge", description="Add a new pledge to the list")
+@log_command()
 async def addpledge(interaction: discord.Interaction, name: str, comment: str = None):
     if not await check_brother_role(interaction):
         return
@@ -89,6 +112,7 @@ async def addpledge(interaction: discord.Interaction, name: str, comment: str = 
         await interaction.response.send_message(f"❌ {caller} failed to add {name}. They might already be in the list.{comment_text}", ephemeral=True)
 
 @bot.tree.command(name="get_pledge_points", description="Get points for a specific pledge")
+@log_command()
 async def getpoints(interaction: discord.Interaction, name: str, comment: str = None):
     if not await check_brother_role(interaction):
         return
@@ -97,6 +121,7 @@ async def getpoints(interaction: discord.Interaction, name: str, comment: str = 
     await interaction.response.send_message(f"{caller} checked: {name} has {fn.get_pledge_points(name)} points!{comment_text}")
 
 @bot.tree.command(name="change_pledge_points", description="Update points for a specific pledge")
+@log_command()
 async def updatepoints(interaction: discord.Interaction, name: str, point_change: int, comment: str = None):
     if not await check_brother_role(interaction):
         return
@@ -115,7 +140,8 @@ async def updatepoints(interaction: discord.Interaction, name: str, point_change
         await interaction.response.send_message("Error: Point change cannot exceed 100 points at once!", ephemeral=True)
         return
 
-    result = fn.update_points(name, point_change)
+    # Pass the comment to the update_points function
+    result = fn.update_points(name, point_change, comment)
     comment_text = f"\nComment: {comment}" if comment else ""
     caller = interaction.user.display_name
     if result == 0:
@@ -128,6 +154,7 @@ async def updatepoints(interaction: discord.Interaction, name: str, point_change
         await interaction.response.send_message(f"❌ {caller} failed to find pledge named '{name}'{comment_text}", ephemeral=True)
 
 @bot.tree.command(name="list_pledges", description="Get list of all pledges")
+@log_command()
 async def getpledges(interaction: discord.Interaction):
     if not await check_brother_role(interaction):
         return
@@ -135,12 +162,14 @@ async def getpledges(interaction: discord.Interaction):
 
 @bot.tree.command(name="show_points_graph", description="Display current points distribution graph")
 @timeout_command()
+@log_command()
 async def getgraph(interaction: discord.Interaction):
     if not await check_brother_role(interaction):
         return
     await interaction.response.send_message(file=discord.File(fn.get_points_graph()))
 
 @bot.tree.command(name="show_pledge_ranking", description="Display current pledge rankings")
+@log_command()
 async def getranking(interaction: discord.Interaction):
     if not await check_brother_role(interaction):
         return
@@ -149,6 +178,7 @@ async def getranking(interaction: discord.Interaction):
     await interaction.response.send_message(f"Current Rankings:\n{response}")
 
 @bot.tree.command(name="remove_pledge", description="Remove a pledge from the list")
+@log_command()
 async def deletepledge(interaction: discord.Interaction, name: str):
     if not await check_brother_role(interaction):
         return
@@ -156,17 +186,47 @@ async def deletepledge(interaction: discord.Interaction, name: str):
 
 @bot.tree.command(name="export_points_file", description="Export the points data as CSV file")
 @app_commands.default_permissions()
+@log_command()
 async def getpointsfile(interaction: discord.Interaction):
     if not await check_brother_role(interaction):
         return
     await interaction.response.send_message(file=discord.File(fn.get_points_file()))
 
-@bot.tree.command(name="show_points_history", description="Display points progression over time")
+@bot.tree.command(name="show_points_history", description="Display a graph with points progression over time")
 @timeout_command()
+@log_command()
 async def getpointstime(interaction: discord.Interaction):
     if not await check_brother_role(interaction):
         return
     await interaction.response.send_message(file=discord.File(fn.get_points_over_time()))
+
+@bot.tree.command(name="log_size", description="Get the current size of the bot's log file")
+@app_commands.default_permissions()
+@log_command()
+async def getlogsize(interaction: discord.Interaction):
+    if not await check_brother_role(interaction):
+        return
+        
+    try:
+        if not os.path.exists('bot.log'):
+            await interaction.response.send_message("Log file does not exist.", ephemeral=True)
+            return
+            
+        size_bytes = os.path.getsize('bot.log')
+        
+        # Convert to appropriate unit
+        if size_bytes < 1024:
+            size_str = f"{size_bytes} bytes"
+        elif size_bytes < 1024 * 1024:
+            size_str = f"{size_bytes/1024:.2f} KB"
+        else:
+            size_str = f"{size_bytes/(1024*1024):.2f} MB"
+            
+        await interaction.response.send_message(f"Current log file size: {size_str}")
+        
+    except Exception as e:
+        logger.error(f"Error getting log file size: {str(e)}")
+        await interaction.response.send_message(f"An error occurred while getting log file size: {str(e)}", ephemeral=True)
 
 # Add error handling for commands
 @bot.tree.error
@@ -219,66 +279,56 @@ async def midnight_update():
     except Exception as e:
         logger.error(f"Error in midnight_update task: {str(e)}")
 
-@bot.tree.command(name="show_logs", description="Get bot logs from the past 24 hours")
+@bot.tree.command(name="show_logs", description="Get bot logs (defaults to past 24 hours)")
 @app_commands.default_permissions()
-async def getlogs(interaction: discord.Interaction):
+async def getlogs(interaction: discord.Interaction, hours: int = 24):
     if not await check_brother_role(interaction):
-        return        
+        return
+        
+    # Validate hours input
+    if hours <= 0:
+        await interaction.response.send_message("Hours must be a positive number.", ephemeral=True)
+        return
+    if hours > 168:  # 1 week limit
+        await interaction.response.send_message("Cannot retrieve more than 168 hours (1 week) of logs.", ephemeral=True)
+        return
+        
+    recent_logs, error = fn.get_recent_logs(hours)
+    if error:
+        await interaction.response.send_message(error, ephemeral=True)
+        return
+            
+    with open('recent_logs.txt', 'w') as f:
+        f.writelines(recent_logs)
+        
+    await interaction.response.send_message(
+        f"Showing logs from the past {hours} hours (most recent first):",
+        file=discord.File('recent_logs.txt')
+    )
+    
+    os.remove('recent_logs.txt')
+
+@bot.tree.command(name="shutdown", description="Safely shutdown the bot (Admin only)")
+@app_commands.default_permissions()
+@log_command()
+async def shutdown(interaction: discord.Interaction):
+    if not await check_brother_role(interaction):
+        return
+        
     try:
-        # Get current time using proper time module
-        now = time.time()
-        yesterday = now - (24 * 60 * 60)
+        await interaction.response.send_message("🔄 Bot is shutting down...")
+        logger.info(f"Bot shutdown initiated by {interaction.user.display_name}")
         
-        # First check if file exists and has content
-        import os
-        if not os.path.exists('bot.log'):
-            await interaction.response.send_message("Log file does not exist.", ephemeral=True)
-            return
+        # Stop the midnight update task if it's running
+        if midnight_update.is_running():
+            midnight_update.cancel()
             
-        # Read log file and filter last 24 hours
-        with open('bot.log', 'r') as f:
-            logs = f.readlines()
-            
-        if not logs:
-            await interaction.response.send_message("Log file is empty.", ephemeral=True)
-            return
-            
-        recent_logs = []
-        for line in logs:
-            try:
-                # Parse timestamp from log line
-                timestamp = line.split(' - ')[0].strip()  # Added strip() to remove whitespace
-                log_time = time.mktime(datetime.strptime(timestamp, '%Y-%m-%d %H:%M:%S,%f').timetuple())  # Added milliseconds format
-                if log_time >= yesterday:
-                    recent_logs.append(line)
-                logger.debug(f"Processed log line with timestamp: {timestamp}, log_time: {log_time}, yesterday: {yesterday}")
-            except Exception as e:
-                logger.error(f"Error processing log line '{line}': {str(e)}")
-                continue
-                
-        if not recent_logs:
-            await interaction.response.send_message(
-                f"No logs found from the past 24 hours.\n"
-                f"Current time: {datetime.fromtimestamp(now)}\n"
-                f"Looking for logs after: {datetime.fromtimestamp(yesterday)}",
-                ephemeral=True
-            )
-            return
-            
-        # Write filtered logs to temporary file
-        with open('recent_logs.txt', 'w') as f:
-            f.writelines(recent_logs)
-            
-        # Send file
-        await interaction.response.send_message(file=discord.File('recent_logs.txt'))
-        
-        # Clean up temp file
-        os.remove('recent_logs.txt')
+        # Close the bot connection
+        await bot.close()
         
     except Exception as e:
-        logger.error(f"Error retrieving logs: {str(e)}")
-        await interaction.response.send_message(f"An error occurred while retrieving logs: {str(e)}", ephemeral=True)
-
+        logger.error(f"Error during shutdown: {str(e)}")
+        await interaction.response.send_message(f"❌ Error during shutdown: {str(e)}", ephemeral=True)
 
 # Start the midnight_update task when the bot is ready
 @midnight_update.before_loop
@@ -304,7 +354,6 @@ async def main():
             await bot.close()
 
 
-
 # Run the bot
 if __name__ == "__main__":
     try:
@@ -313,5 +362,4 @@ if __name__ == "__main__":
         logger.info("Bot shutdown by user")
     except Exception as e:
         logger.critical(f"Fatal error during startup: {str(e)}")
-
 
