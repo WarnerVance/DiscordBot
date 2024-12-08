@@ -105,3 +105,42 @@ def get_points_file():
     # Return the points file name
     return 'Points.csv'
 
+def get_points_over_time():
+    import matplotlib.pyplot as plt
+    # Read points data and convert to pandas DataFrame
+    df = pd.read_csv('Points.csv')
+    
+    # Convert timestamp to datetime
+    df['Time'] = pd.to_datetime(df['Time'], unit='s')
+    
+    # Sort by time
+    df = df.sort_values('Time')
+    
+    # Calculate running sum for each pledge
+    pledges = get_pledges()
+    plt.figure(figsize=(10, 6))
+    
+    for pledge in pledges:
+        pledge_data = df[df['Name'] == pledge].copy()
+        if not pledge_data.empty:
+            pledge_data['Cumulative_Points'] = pledge_data['Point_Change'].cumsum()
+            plt.plot(pledge_data['Time'], pledge_data['Cumulative_Points'], label=pledge, marker='o')
+    
+    plt.title('Pledge Points Over Time')
+    plt.xlabel('Date')
+    plt.ylabel('Total Points')
+    plt.legend()
+    plt.grid(True)
+    
+    # Rotate x-axis labels for better readability
+    plt.xticks(rotation=45)
+    
+    # Adjust layout to prevent label cutoff
+    plt.tight_layout()
+    
+    # Save and return filename
+    filename = 'points_over_time.png'
+    plt.savefig(filename)
+    plt.close()
+    return filename
+

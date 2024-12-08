@@ -162,3 +162,6 @@ cython_debug/
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
 
+points_over_time.png
+pledge_points_graph.png
+pledge_points_graph.png
