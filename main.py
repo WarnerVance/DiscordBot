@@ -84,8 +84,23 @@ def log_command():
         return wrapper
     return decorator
 
+# Add this function near the top with your other imports and helper functions
+async def pledge_name_autocomplete(
+    interaction: discord.Interaction,
+    current: str,
+) -> list[app_commands.Choice[str]]:
+    pledges = fn.get_pledges()
+    return [
+        app_commands.Choice(name=pledge, value=pledge)
+        for pledge in pledges
+        if current.lower() in pledge.lower()
+    ][:25]  # Discord has a limit of 25 choices
+
 # Convert commands to slash commands
-@bot.tree.command(name="add_pledge", description="Add a new pledge to the list")
+@bot.tree.command(
+    name="add_pledge",
+    description="Add a new pledge to the list"
+)
 @log_command()
 async def addpledge(interaction: discord.Interaction, name: str, comment: str = None):
     if not await check_brother_role(interaction):
@@ -111,7 +126,11 @@ async def addpledge(interaction: discord.Interaction, name: str, comment: str = 
     else:
         await interaction.response.send_message(f"❌ {caller} failed to add {name}. They might already be in the list.{comment_text}", ephemeral=True)
 
-@bot.tree.command(name="get_pledge_points", description="Get points for a specific pledge")
+@bot.tree.command(
+    name="get_pledge_points",
+    description="Get points for a specific pledge"
+)
+@app_commands.autocomplete(name=pledge_name_autocomplete)
 @log_command()
 async def getpoints(interaction: discord.Interaction, name: str, comment: str = None):
     if not await check_brother_role(interaction):
@@ -120,7 +139,12 @@ async def getpoints(interaction: discord.Interaction, name: str, comment: str = 
     caller = interaction.user.display_name
     await interaction.response.send_message(f"{caller} checked: {name} has {fn.get_pledge_points(name)} points!{comment_text}")
 
-@bot.tree.command(name="change_pledge_points", description="Update points for a specific pledge")
+@bot.tree.command(
+    name="change_pledge_points",
+    description="Update points for a specific pledge",
+    extras={"emoji": "📝"}
+)
+@app_commands.autocomplete(name=pledge_name_autocomplete)
 @log_command()
 async def updatepoints(interaction: discord.Interaction, name: str, point_change: int, comment: str = None):
     if not await check_brother_role(interaction):
@@ -153,7 +177,10 @@ async def updatepoints(interaction: discord.Interaction, name: str, point_change
     else:
         await interaction.response.send_message(f"❌ {caller} failed to find pledge named '{name}'{comment_text}", ephemeral=True)
 
-@bot.tree.command(name="list_pledges", description="Get list of all pledges")
+@bot.tree.command(
+    name="list_pledges",
+    description="Get list of all pledges"
+)
 @log_command()
 async def getpledges(interaction: discord.Interaction):
     if not await check_brother_role(interaction):
@@ -178,6 +205,7 @@ async def getranking(interaction: discord.Interaction):
     await interaction.response.send_message(f"Current Rankings:\n{response}")
 
 @bot.tree.command(name="remove_pledge", description="Remove a pledge from the list")
+@app_commands.autocomplete(name=pledge_name_autocomplete)
 @log_command()
 async def deletepledge(interaction: discord.Interaction, name: str):
     if not await check_brother_role(interaction):

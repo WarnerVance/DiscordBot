@@ -105,7 +105,12 @@ def get_ranked_pledges():
             points = get_pledge_points(pledge)
             # Get the most recent comment
             pledge_df = df[df["Name"] == pledge]
-            recent_comment = pledge_df.iloc[-1]["Comments"] if not pledge_df.empty else ""
+            recent_comment = ""
+            if not pledge_df.empty:
+                last_comment = pledge_df.iloc[-1]["Comments"]
+                # Check if comment is not empty or NaN
+                if pd.notna(last_comment) and str(last_comment).strip():
+                    recent_comment = last_comment
             pledge_points.append((pledge, points, recent_comment))
         
         # Sort by points in descending order
