@@ -1,12 +1,21 @@
+# Import required libraries
 import pandas as pd 
 import time
 import os
 from datetime import datetime
 from logging import getLogger
 
+# Initialize logger for this module
 logger = getLogger(__name__)
 
 def check_pledge(name):
+    """
+    Check if a pledge exists in the pledges.csv file
+    Args:
+        name (str): Name of pledge to check
+    Returns:
+        bool: True if pledge exists, False otherwise
+    """
     with open('pledges.csv', 'r') as fil:
         pledge_names = [line.rstrip('\n') for line in fil]
         if name in pledge_names:
@@ -15,6 +24,11 @@ def check_pledge(name):
             return False
 
 def get_points_csv():
+    """
+    Get or create the Points.csv file and return it as a DataFrame
+    Returns:
+        pd.DataFrame: DataFrame containing points data
+    """
     try:
         if not os.path.exists("Points.csv"):
             # Create new DataFrame with all required columns
@@ -58,7 +72,7 @@ def update_points(name: str, point_change: int, comment=None):
         name = name.strip()
         point_change = int(point_change)  # Convert float to int if necessary
         
-        # Validate comment
+        # Validate and sanitize comment
         if comment is not None:
             if not isinstance(comment, str):
                 logger.warning(f"Invalid comment type: {type(comment)}, converting to string")
@@ -104,7 +118,7 @@ def update_points(name: str, point_change: int, comment=None):
             logger.error(f"Error creating new row: {str(e)}")
             return 1
             
-        # Save to CSV with error handling
+        # Save to CSV with error handling and backup
         try:
             # Create backup of current file
             if os.path.exists("Points.csv"):
@@ -142,15 +156,28 @@ def update_points(name: str, point_change: int, comment=None):
         logger.error(f"Unexpected error in update_points: {str(e)}")
         return 1
 
-
 def get_pledge_points(name):
-    if check_pledge(name):  # Simplified boolean comparison
+    """
+    Get total points for a specific pledge
+    Args:
+        name (str): Name of pledge
+    Returns:
+        int: Total points for pledge, or None if pledge doesn't exist
+    """
+    if check_pledge(name):
         df = get_points_csv()
         points = df[df["Name"] == name]["Point_Change"].sum()
-        return points  # Handle case when no points exist
-
+        return points
+    return None
 
 def add_pledge(name):
+    """
+    Add a new pledge to the system
+    Args:
+        name (str): Name of pledge to add
+    Returns:
+        int: 0 for success, 1 if pledge already exists
+    """
     if check_pledge(name):
         return 1
     else:
@@ -159,10 +186,20 @@ def add_pledge(name):
     return 0
 
 def get_pledges():
+    """
+    Get list of all pledges
+    Returns:
+        list: List of pledge names
+    """
     with open('pledges.csv', 'r') as fil:
         return [line.rstrip('\n') for line in fil]
 
 def get_points_graph():
+    """
+    Generate a bar graph of pledge points
+    Returns:
+        str: Filename of generated graph
+    """
     import matplotlib.pyplot as plt
     
     # Get points for each pledge
@@ -185,6 +222,11 @@ def get_points_graph():
     return filename
 
 def get_ranked_pledges():
+    """
+    Get a sorted list of pledges by their points, including their most recent comment
+    Returns:
+        list: List of formatted strings with rankings, points, and comments
+    """
     try:
         # Validate that required files exist
         if not os.path.exists('pledges.csv'):
@@ -205,6 +247,7 @@ def get_ranked_pledges():
             logger.error(f"Error reading pledges: {str(e)}")
             return ["Error reading pledge data"]
             
+        # Initialize list to store pledge data
         pledge_points = []
         try:
             df = get_points_csv()
@@ -215,6 +258,7 @@ def get_ranked_pledges():
             logger.error(f"Error reading points CSV: {str(e)}")
             return ["Error reading points data"]
         
+        # Process each pledge's points and comments
         for pledge in pledges:
             try:
                 points = get_pledge_points(pledge)
@@ -248,18 +292,18 @@ def get_ranked_pledges():
                 # Skip this pledge but continue with others
                 continue
         
+        # Format and return the rankings
         if not pledge_points:
             return ["No valid pledge data found"]
             
-        # Sort by points in descending order
+        # Sort by points (descending) and name (ascending)
         try:
             ranked_pledges = sorted(pledge_points, key=lambda x: (x[1], x[0].lower()), reverse=True)
-            # Secondary sort by name if points are equal
         except Exception as e:
             logger.error(f"Error sorting pledges: {str(e)}")
             return ["Error sorting pledge rankings"]
         
-        # Format into list of strings with max length protection
+        # Format rankings into strings
         formatted_rankings = []
         try:
             for i, (pledge, points, comment) in enumerate(ranked_pledges, 1):
@@ -286,6 +330,13 @@ def get_ranked_pledges():
         return ["An unexpected error occurred while retrieving rankings"]
 
 def delete_pledge(name: str):
+    """
+    Remove a pledge from the system
+    Args:
+        name (str): Name of pledge to delete
+    Returns:
+        int: 0 for success, 1 if pledge doesn't exist
+    """
     # Read all pledges
     pledges = get_pledges()
     
@@ -304,10 +355,19 @@ def delete_pledge(name: str):
     return 0
 
 def get_points_file():
-    # Return the points file name
+    """
+    Get the name of the points file
+    Returns:
+        str: Name of the points file
+    """
     return 'Points.csv'
 
 def get_points_over_time():
+    """
+    Generate a line graph showing how pledge points change over time
+    Returns:
+        str: Filename of generated graph
+    """
     import matplotlib.pyplot as plt
     # Read points data and convert to pandas DataFrame
     df = pd.read_csv('Points.csv')
@@ -322,6 +382,7 @@ def get_points_over_time():
     pledges = get_pledges()
     plt.figure(figsize=(10, 6))
     
+    # Plot each pledge's points over time
     for pledge in pledges:
         pledge_data = df[df['Name'] == pledge].copy()
         if not pledge_data.empty:
@@ -348,23 +409,29 @@ def get_points_over_time():
 
 def get_recent_logs(hours: int = 24) -> tuple[list[str], str]:
     """
-    Retrieve logs from the past specified hours.
-    Returns tuple of (log_lines, error_message).
-    If error_message is not empty, log_lines will be empty.
+    Retrieve logs from the past specified hours
+    Args:
+        hours (int): Number of hours to look back (default: 24)
+    Returns:
+        tuple: (list of log lines, error message)
+        If error_message is not empty, log_lines will be empty
     """
     try:
         now = time.time()
         past_time = now - (hours * 60 * 60)
         
+        # Check if log file exists
         if not os.path.exists('bot.log'):
             return [], "Log file does not exist."
             
+        # Read and process log files
         with open('bot.log', 'r') as f:
             logs = f.readlines()
             
         if not logs:
             return [], "Log file is empty."
             
+        # Filter logs by time
         recent_logs = []
         for line in logs:
             try:

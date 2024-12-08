@@ -1,55 +1,60 @@
-import os
-import discord
-from discord.ext import commands, tasks
-from discord import app_commands
-import certifi
-import ssl
-import functions as fn
-import asyncio
-import functools
-from datetime import datetime, time as datetime_time
-import pytz
-import logging
-import time
+# Import required libraries for Discord bot functionality
+import os                                  # File and path operations
+import discord                            # Discord API wrapper
+from discord.ext import commands, tasks   # Discord bot commands and scheduled tasks
+from discord import app_commands          # Discord slash commands
+import certifi                            # SSL certificate handling
+import ssl                                # Secure connection support
+import functions as fn                    # Custom functions for pledge management
+import asyncio                            # Asynchronous I/O support
+import functools                          # Function and decorator tools
+from datetime import datetime, time as datetime_time  # Date and time handling
+import pytz                               # Timezone support
+import logging                            # Logging functionality
+import time                               # Time operations
 
-# Add custom logging level for commands
-COMMAND_LEVEL = 25  # Between INFO (20) and WARNING (30)
+# Define custom logging level for command tracking
+COMMAND_LEVEL = 25  # Set between INFO (20) and WARNING (30)
 logging.addLevelName(COMMAND_LEVEL, 'COMMAND')
+
+# Add custom command logging method to Logger class
 def command(self, message, *args, **kwargs):
     if self.isEnabledFor(COMMAND_LEVEL):
         self._log(COMMAND_LEVEL, message, args, **kwargs)
 logging.Logger.command = command
 
-# Add logging configuration
+# Configure logging system with both file and console output
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler('bot.log'),
-        logging.StreamHandler()
+        logging.FileHandler('bot.log'),   # Log to file
+        logging.StreamHandler()           # Log to console
     ]
 )
 logger = logging.getLogger('discord_bot')
 
-# Create a custom SSL context
+# Initialize SSL context for secure connections
 ssl_context = ssl.create_default_context(cafile=certifi.where())
 
-# Set up the bot with the SSL context
+# Set up Discord bot with required permissions
 intents = discord.Intents.default()
-intents.message_content = True
+intents.message_content = True            # Enable message content intent
 bot = commands.Bot(command_prefix='!', intents=intents)
 
+# Event handler for when bot successfully connects to Discord
 @bot.event
 async def on_ready():
     logger.info(f'{bot.user} has connected to Discord!')
     try:
+        # Synchronize slash commands with Discord's API
         synced = await bot.tree.sync()
         logger.info(f"Synced {len(synced)} command(s)")
         logger.info(f"Synced commands: {[command.name for command in synced]}")
     except Exception as e:
         logger.error(f"Error syncing commands: {str(e)}")
 
-# Helper function to check for Brother role
+# Helper function to verify if user has the Brother role
 async def check_brother_role(interaction: discord.Interaction) -> bool:
     brother_role = discord.utils.get(interaction.guild.roles, name="Brother")
     if brother_role is None or brother_role not in interaction.user.roles:
@@ -57,38 +62,43 @@ async def check_brother_role(interaction: discord.Interaction) -> bool:
         return False
     return True
 
-# Add this decorator function
+# Decorator function to add timeout functionality to commands
 def timeout_command(seconds=10):
     def decorator(func):
         @functools.wraps(func)
         async def wrapper(interaction: discord.Interaction, *args, **kwargs):
             try:
+                # Execute command with timeout
                 async with asyncio.timeout(seconds):
                     await func(interaction, *args, **kwargs)
             except asyncio.TimeoutError:
+                # Handle timeout case
                 if not interaction.response.is_done():
                     await interaction.response.send_message("Command timed out after 10 seconds.", ephemeral=True)
         return wrapper
     return decorator
 
-# Add this decorator function for command logging
+# Decorator function for logging command usage
 def log_command():
     def decorator(func):
         @functools.wraps(func)
         async def wrapper(interaction: discord.Interaction, *args, **kwargs):
+            # Extract command information
             command_name = func.__name__
             user = interaction.user.display_name
             guild = interaction.guild.name if interaction.guild else "DM"
+            # Log command execution
             logger.command(f"Command '{command_name}' executed by {user} in {guild} with args: {args} kwargs: {kwargs}")
             return await func(interaction, *args, **kwargs)
         return wrapper
     return decorator
 
-# Add this function near the top with your other imports and helper functions
+# Helper function for pledge name autocomplete in commands
 async def pledge_name_autocomplete(
     interaction: discord.Interaction,
     current: str,
 ) -> list[app_commands.Choice[str]]:
+    # Get list of pledges and filter based on current input
     pledges = fn.get_pledges()
     return [
         app_commands.Choice(name=pledge, value=pledge)
