@@ -64,7 +64,7 @@ def timeout_command(seconds=10):
 
 # Convert commands to slash commands
 @bot.tree.command(name="add_pledge", description="Add a new pledge to the list")
-async def addpledge(interaction: discord.Interaction, name: str):
+async def addpledge(interaction: discord.Interaction, name: str, comment: str = None):
     if not await check_brother_role(interaction):
         return
     
@@ -81,19 +81,23 @@ async def addpledge(interaction: discord.Interaction, name: str):
         return
 
     result = fn.add_pledge(name)
+    comment_text = f"\nComment: {comment}" if comment else ""
+    caller = interaction.user.display_name
     if result == 0:
-        await interaction.response.send_message(f"✅ Successfully added {name} to the pledges list!")
+        await interaction.response.send_message(f"✅ {caller} added {name} to the pledges list!{comment_text}")
     else:
-        await interaction.response.send_message(f"❌ Failed to add {name}. They might already be in the list.", ephemeral=True)
+        await interaction.response.send_message(f"❌ {caller} failed to add {name}. They might already be in the list.{comment_text}", ephemeral=True)
 
 @bot.tree.command(name="get_pledge_points", description="Get points for a specific pledge")
-async def getpoints(interaction: discord.Interaction, name: str):
+async def getpoints(interaction: discord.Interaction, name: str, comment: str = None):
     if not await check_brother_role(interaction):
         return
-    await interaction.response.send_message(f"{name} has {fn.get_pledge_points(name)} points!")
+    comment_text = f"\nComment: {comment}" if comment else ""
+    caller = interaction.user.display_name
+    await interaction.response.send_message(f"{caller} checked: {name} has {fn.get_pledge_points(name)} points!{comment_text}")
 
 @bot.tree.command(name="change_pledge_points", description="Update points for a specific pledge")
-async def updatepoints(interaction: discord.Interaction, name: str, point_change: int):
+async def updatepoints(interaction: discord.Interaction, name: str, point_change: int, comment: str = None):
     if not await check_brother_role(interaction):
         return
     
@@ -112,14 +116,16 @@ async def updatepoints(interaction: discord.Interaction, name: str, point_change
         return
 
     result = fn.update_points(name, point_change)
+    comment_text = f"\nComment: {comment}" if comment else ""
+    caller = interaction.user.display_name
     if result == 0:
         emoji = "🔺" if point_change > 0 else "🔻"
         await interaction.response.send_message(
-            f"{emoji} Updated points for {name}:\n"
-            f"Change: {point_change:+d} points"
+            f"{emoji} {caller} updated points for {name}:\n"
+            f"Change: {point_change:+d} points{comment_text}"
         )
     else:
-        await interaction.response.send_message(f"❌ Error: Could not find pledge named '{name}'", ephemeral=True)
+        await interaction.response.send_message(f"❌ {caller} failed to find pledge named '{name}'{comment_text}", ephemeral=True)
 
 @bot.tree.command(name="list_pledges", description="Get list of all pledges")
 async def getpledges(interaction: discord.Interaction):
