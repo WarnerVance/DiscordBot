@@ -161,7 +161,7 @@ async def updatepoints(interaction: discord.Interaction, name: str, point_change
         return
         
     if abs(point_change) > 35:
-        await interaction.response.send_message("Error: Point change cannot exceed 100 points at once!", ephemeral=True)
+        await interaction.response.send_message("Error: Point change cannot exceed 35 points at once!", ephemeral=True)
         return
 
     # Pass the comment to the update_points function
