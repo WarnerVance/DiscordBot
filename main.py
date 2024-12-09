@@ -12,27 +12,15 @@ from datetime import datetime, time as datetime_time  # Date and time handling
 import pytz                               # Timezone support
 import logging                            # Logging functionality
 import time                               # Time operations
+import psutil                             # System information
+import platform                         # System information
+from logging_config import setup_logging  # Add this import
+import matplotlib.pyplot as plt
+import pandas as pd
+from functions import interactive_plot
 
-# Define custom logging level for command tracking
-COMMAND_LEVEL = 25  # Set between INFO (20) and WARNING (30)
-logging.addLevelName(COMMAND_LEVEL, 'COMMAND')
-
-# Add custom command logging method to Logger class
-def command(self, message, *args, **kwargs):
-    if self.isEnabledFor(COMMAND_LEVEL):
-        self._log(COMMAND_LEVEL, message, args, **kwargs)
-logging.Logger.command = command
-
-# Configure logging system with both file and console output
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler('bot.log'),   # Log to file
-        logging.StreamHandler()           # Log to console
-    ]
-)
-logger = logging.getLogger('discord_bot')
+# Get configured logger
+logger = setup_logging()
 
 # Initialize SSL context for secure connections
 ssl_context = ssl.create_default_context(cafile=certifi.where())
@@ -41,10 +29,13 @@ ssl_context = ssl.create_default_context(cafile=certifi.where())
 intents = discord.Intents.default()
 intents.message_content = True            # Enable message content intent
 bot = commands.Bot(command_prefix='!', intents=intents)
+bot.start_time = None 
 
 # Event handler for when bot successfully connects to Discord
 @bot.event
 async def on_ready():
+    if bot.start_time is None:  # Only set on first connection
+        bot.start_time = datetime.now(pytz.UTC)
     logger.info(f'{bot.user} has connected to Discord!')
     try:
         # Synchronize slash commands with Discord's API
@@ -53,14 +44,6 @@ async def on_ready():
         logger.info(f"Synced commands: {[command.name for command in synced]}")
     except Exception as e:
         logger.error(f"Error syncing commands: {str(e)}")
-
-# Helper function to verify if user has the Brother role
-async def check_brother_role(interaction: discord.Interaction) -> bool:
-    brother_role = discord.utils.get(interaction.guild.roles, name="Brother")
-    if brother_role is None or brother_role not in interaction.user.roles:
-        await interaction.response.send_message("You must have the Brother role to use this command.", ephemeral=True)
-        return False
-    return True
 
 # Decorator function to add timeout functionality to commands
 def timeout_command(seconds=10):
@@ -98,13 +81,20 @@ async def pledge_name_autocomplete(
     interaction: discord.Interaction,
     current: str,
 ) -> list[app_commands.Choice[str]]:
-    # Get list of pledges and filter based on current input
-    pledges = fn.get_pledges()
-    return [
-        app_commands.Choice(name=pledge, value=pledge)
-        for pledge in pledges
-        if current.lower() in pledge.lower()
-    ][:25]  # Discord has a limit of 25 choices
+    try:
+        # Get list of pledges and filter based on current input
+        pledges = fn.get_pledges()
+        choices = [
+            app_commands.Choice(name=pledge, value=pledge)
+            for pledge in pledges
+            if current.lower() in pledge.lower()
+        ]
+        # Discord has a limit of 25 choices
+        return choices[:25]
+    except Exception as e:
+        logger.error(f"Error in pledge_name_autocomplete: {str(e)}")
+        # Return empty list on error to prevent command failure
+        return []
 
 # Convert commands to slash commands
 @bot.tree.command(
@@ -113,7 +103,7 @@ async def pledge_name_autocomplete(
 )
 @log_command()
 async def addpledge(interaction: discord.Interaction, name: str, comment: str = None):
-    if not await check_brother_role(interaction):
+    if not await fn.check_brother_role(interaction):
         return
     
     # Validate name
@@ -143,7 +133,7 @@ async def addpledge(interaction: discord.Interaction, name: str, comment: str = 
 @app_commands.autocomplete(name=pledge_name_autocomplete)
 @log_command()
 async def getpoints(interaction: discord.Interaction, name: str, comment: str = None):
-    if not await check_brother_role(interaction):
+    if not await fn.check_brother_role(interaction):
         return
     comment_text = f"\nComment: {comment}" if comment else ""
     caller = interaction.user.display_name
@@ -156,8 +146,8 @@ async def getpoints(interaction: discord.Interaction, name: str, comment: str = 
 )
 @app_commands.autocomplete(name=pledge_name_autocomplete)
 @log_command()
-async def updatepoints(interaction: discord.Interaction, name: str, point_change: int, comment: str = None):
-    if not await check_brother_role(interaction):
+async def updatepoints(interaction: discord.Interaction, name: str, point_change: int, comment: str):
+    if not await fn.check_brother_role(interaction):
         return
     
     # Validate inputs
@@ -174,18 +164,22 @@ async def updatepoints(interaction: discord.Interaction, name: str, point_change
         await interaction.response.send_message("Error: Point change cannot exceed 35 points at once!", ephemeral=True)
         return
 
+    if not comment or not comment.strip():
+        await interaction.response.send_message("Error: A comment is required when changing points!", ephemeral=True)
+        return
+
     # Pass the comment to the update_points function
     result = fn.update_points(name, point_change, comment)
-    comment_text = f"\nComment: {comment}" if comment else ""
     caller = interaction.user.display_name
     if result == 0:
         emoji = "🔺" if point_change > 0 else "🔻"
         await interaction.response.send_message(
             f"{emoji} {caller} updated points for {name}:\n"
-            f"Change: {point_change:+d} points{comment_text}"
+            f"Change: {point_change:+d} points\n"
+            f"Comment: {comment}"
         )
     else:
-        await interaction.response.send_message(f"❌ {caller} failed to find pledge named '{name}'{comment_text}", ephemeral=True)
+        await interaction.response.send_message(f"❌ {caller} failed to find pledge named '{name}'", ephemeral=True)
 
 @bot.tree.command(
     name="list_pledges",
@@ -193,7 +187,7 @@ async def updatepoints(interaction: discord.Interaction, name: str, point_change
 )
 @log_command()
 async def getpledges(interaction: discord.Interaction):
-    if not await check_brother_role(interaction):
+    if not await fn.check_brother_role(interaction):
         return
     await interaction.response.send_message(f"Pledges: {fn.get_pledges()}")
 
@@ -201,14 +195,14 @@ async def getpledges(interaction: discord.Interaction):
 @timeout_command()
 @log_command()
 async def getgraph(interaction: discord.Interaction):
-    if not await check_brother_role(interaction):
+    if not await fn.check_brother_role(interaction):
         return
     await interaction.response.send_message(file=discord.File(fn.get_points_graph()))
 
 @bot.tree.command(name="show_pledge_ranking", description="Display current pledge rankings")
 @log_command()
 async def getranking(interaction: discord.Interaction):
-    if not await check_brother_role(interaction):
+    if not await fn.check_brother_role(interaction):
         return
     rankings = fn.get_ranked_pledges()
     response = "\n".join(rankings)
@@ -218,7 +212,7 @@ async def getranking(interaction: discord.Interaction):
 @app_commands.autocomplete(name=pledge_name_autocomplete)
 @log_command()
 async def deletepledge(interaction: discord.Interaction, name: str):
-    if not await check_brother_role(interaction):
+    if not await fn.check_brother_role(interaction):
         return
     await interaction.response.send_message(f"Exit Code: {fn.delete_pledge(name)}")
 
@@ -226,7 +220,7 @@ async def deletepledge(interaction: discord.Interaction, name: str):
 @app_commands.default_permissions()
 @log_command()
 async def getpointsfile(interaction: discord.Interaction):
-    if not await check_brother_role(interaction):
+    if not await fn.check_brother_role(interaction):
         return
     await interaction.response.send_message(file=discord.File(fn.get_points_file()))
 
@@ -234,7 +228,7 @@ async def getpointsfile(interaction: discord.Interaction):
 @timeout_command()
 @log_command()
 async def getpointstime(interaction: discord.Interaction):
-    if not await check_brother_role(interaction):
+    if not await fn.check_brother_role(interaction):
         return
     await interaction.response.send_message(file=discord.File(fn.get_points_over_time()))
 
@@ -242,7 +236,7 @@ async def getpointstime(interaction: discord.Interaction):
 @app_commands.default_permissions()
 @log_command()
 async def getlogsize(interaction: discord.Interaction):
-    if not await check_brother_role(interaction):
+    if not await fn.check_brother_role(interaction):
         return
         
     try:
@@ -304,6 +298,11 @@ async def on_connect():
 @tasks.loop(time=[datetime_time(5, 0), datetime_time(6, 0)])
 async def midnight_update():
     try:
+        # Clean old logs first
+        logger.info("Starting daily log cleanup")
+        fn.clean_old_logs()
+        
+        # Send updates to guilds
         for guild in bot.guilds:
             general_channel = discord.utils.get(guild.text_channels, name='general')
             if general_channel:
@@ -320,7 +319,7 @@ async def midnight_update():
 @bot.tree.command(name="show_logs", description="Get bot logs (defaults to past 24 hours)")
 @app_commands.default_permissions()
 async def getlogs(interaction: discord.Interaction, hours: int = 24):
-    if not await check_brother_role(interaction):
+    if not await fn.check_brother_role(interaction):
         return
         
     # Validate hours input
@@ -346,11 +345,11 @@ async def getlogs(interaction: discord.Interaction, hours: int = 24):
     
     os.remove('recent_logs.txt')
 
-@bot.tree.command(name="shutdown", description="Safely shutdown the bot (Admin only)")
+@bot.tree.command(name="shutdown", description="Safely shutdown the bot (Admin only). This will require restarting via ssh or direct access")
 @app_commands.default_permissions()
 @log_command()
 async def shutdown(interaction: discord.Interaction):
-    if not await check_brother_role(interaction):
+    if not await fn.check_brother_role(interaction):
         return
         
     try:
@@ -392,6 +391,90 @@ async def main():
             await bot.close()
 
 
+@bot.tree.command(name="status", description="Get bot and server status information")
+@app_commands.default_permissions()
+@log_command()
+async def status(interaction: discord.Interaction):
+    if not await fn.check_brother_role(interaction):
+        return
+        
+    try:
+        # Get bot uptime
+        uptime = datetime.now(pytz.UTC) - bot.start_time
+        uptime_str = str(uptime).split('.')[0]  # Remove microseconds
+        
+        # Get server info
+        server = interaction.guild
+        member_count = server.member_count
+        channel_count = len(server.channels)
+        
+        # Get bot latency
+        latency = round(bot.latency * 1000)  # Convert to milliseconds
+        
+        # Get system information
+        cpu_percent = psutil.cpu_percent()
+        memory = psutil.virtual_memory()
+        memory_used = f"{memory.percent}%"
+        disk = psutil.disk_usage('/')
+        disk_used = f"{disk.percent}%"
+        
+        # Build status message
+        status_msg = (
+            "🤖 **Bot Status**\n"
+            f"Bot Uptime: {uptime_str}\n"
+            f"Latency: {latency}ms\n\n"
+            "🖥️ **Server Status**\n"
+            f"Server Name: {server.name}\n"
+            f"Total Members: {member_count}\n"
+            f"Total Channels: {channel_count}\n"
+            f"Server Created: {server.created_at.strftime('%Y-%m-%d %H:%M:%S UTC')}\n\n"
+            "💻 **Host System**\n"
+            f"OS: {platform.system()} {platform.release()}\n"
+            f"CPU Usage: {cpu_percent}%\n"
+            f"Memory Usage: {memory_used}\n"
+            f"Disk Usage: {disk_used}"
+        )
+        
+        await interaction.response.send_message(status_msg)
+        
+    except Exception as e:
+        logger.error(f"Error getting status: {str(e)}")
+        await interaction.response.send_message(
+            "❌ An error occurred while getting status information",
+            ephemeral=True
+        )
+
+@bot.tree.command(name="interactive_plot", description="Show an interactive plot of pledge points over time")
+@log_command()
+async def plot(interaction: discord.Interaction):
+    """
+    Command to display an interactive plot showing pledge points over time
+    """
+    try:
+        if not await fn.check_brother_role(interaction):
+            return
+            
+        # Check if required files exist
+        if not os.path.exists('Points.csv'):
+            await interaction.response.send_message("Error: Points.csv file not found.", ephemeral=True)
+            return
+            
+        # Verify we have pledges
+        pledges = fn.get_pledges()
+        if not pledges:
+            await interaction.response.send_message("No pledges found in the system.", ephemeral=True)
+            return
+            
+        await fn.interactive_plot(interaction)
+        
+    except Exception as e:
+        logger.error(f"Error in plot command: {str(e)}")
+        if not interaction.response.is_done():
+            await interaction.response.send_message(
+                f"An error occurred while creating the interactive plot: {str(e)}",
+                ephemeral=True
+            )
+
 # Run the bot
 if __name__ == "__main__":
     try:
@@ -400,4 +483,5 @@ if __name__ == "__main__":
         logger.info("Bot shutdown by user")
     except Exception as e:
         logger.critical(f"Fatal error during startup: {str(e)}")
+
 

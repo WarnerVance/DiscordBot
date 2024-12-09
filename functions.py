@@ -4,6 +4,7 @@ import time
 import os
 from datetime import datetime
 from logging import getLogger
+import discord
 
 # Initialize logger for this module
 logger = getLogger(__name__)
@@ -46,14 +47,14 @@ def get_points_csv():
         return pd.DataFrame(columns=["Time", "Name", "Point_Change", "Comments"])
     return df
 
-def update_points(name: str, point_change: int, comment=None):
+def update_points(name: str, point_change: int, comment: str):
     """
     Update points for a pledge with comprehensive error handling and validation.
     
     Args:
         name (str): The name of the pledge
         point_change (int): The number of points to add/subtract
-        comment (str, optional): A comment about the point change
+        comment (str): A required comment about the point change
         
     Returns:
         int: 0 for success, 1 for failure
@@ -68,9 +69,14 @@ def update_points(name: str, point_change: int, comment=None):
             logger.error(f"Invalid point_change type: {type(point_change)}")
             return 1
             
+        if not comment or not isinstance(comment, str) or not comment.strip():
+            logger.error("Comment is required and cannot be empty")
+            return 1
+            
         # Sanitize inputs
         name = name.strip()
         point_change = int(point_change)  # Convert float to int if necessary
+        comment = comment.strip()
         
         # Validate and sanitize comment
         if comment is not None:
@@ -122,7 +128,26 @@ def update_points(name: str, point_change: int, comment=None):
         try:
             # Create backup of current file
             if os.path.exists("Points.csv"):
-                backup_name = f"Points_backup_{int(current_time)}.csv"
+                # Create backups directory if it doesn't exist
+                backup_dir = "backups"
+                os.makedirs(backup_dir, exist_ok=True)
+                
+                # Get list of existing backups sorted by creation time
+                existing_backups = []
+                if os.path.exists(backup_dir):
+                    backup_files = [f for f in os.listdir(backup_dir) if f.startswith("Points_backup_")]
+                    existing_backups = sorted(backup_files, reverse=True)
+                
+                # Remove oldest backups if more than 20 exist
+                while len(existing_backups) >= 20:
+                    oldest_backup = os.path.join(backup_dir, existing_backups.pop())
+                    try:
+                        os.remove(oldest_backup)
+                    except Exception as e:
+                        logger.warning(f"Failed to remove old backup {oldest_backup}: {str(e)}")
+                
+                # Create new backup
+                backup_name = os.path.join(backup_dir, f"Points_backup_{int(current_time)}.csv")
                 try:
                     import shutil
                     shutil.copy2("Points.csv", backup_name)
@@ -351,7 +376,12 @@ def delete_pledge(name: str):
     with open('pledges.csv', 'w') as fil:
         for pledge in pledges:
             fil.write(f"{pledge}\n")
-            
+    # Verify the pledge was actually deleted
+    if name in get_pledges():
+        logger.error(f"Failed to delete pledge {name}")
+        return 1
+        
+    logger.info(f"Successfully deleted pledge {name}")
     return 0
 
 def get_points_file():
@@ -372,33 +402,42 @@ def get_points_over_time():
     # Read points data and convert to pandas DataFrame
     df = pd.read_csv('Points.csv')
     
+    # Get list of active pledges
+    active_pledges = get_pledges()
+    
+    # Filter DataFrame to only include active pledges
+    df = df[df['Name'].isin(active_pledges)]
+    
     # Convert timestamp to datetime
     df['Time'] = pd.to_datetime(df['Time'], unit='s')
     
     # Sort by time
     df = df.sort_values('Time')
     
-    # Calculate running sum for each pledge
-    pledges = get_pledges()
-    plt.figure(figsize=(10, 6))
+    # Calculate cumulative sums for all pledges at once using groupby
+    cumulative_points = df.pivot_table(
+        index='Time', 
+        columns='Name', 
+        values='Point_Change',
+        aggfunc='sum'
+    ).fillna(0).cumsum()
     
-    # Plot each pledge's points over time
-    for pledge in pledges:
-        pledge_data = df[df['Name'] == pledge].copy()
-        if not pledge_data.empty:
-            pledge_data['Cumulative_Points'] = pledge_data['Point_Change'].cumsum()
-            plt.plot(pledge_data['Time'], pledge_data['Cumulative_Points'], label=pledge, marker='o')
+    # Create the plot
+    plt.figure(figsize=(10, 6))
+    for pledge in cumulative_points.columns:
+        plt.plot(
+            cumulative_points.index, 
+            cumulative_points[pledge], 
+            label=pledge, 
+            marker='o'
+        )
     
     plt.title('Pledge Points Over Time')
     plt.xlabel('Date')
     plt.ylabel('Total Points')
     plt.legend()
     plt.grid(True)
-    
-    # Rotate x-axis labels for better readability
     plt.xticks(rotation=45)
-    
-    # Adjust layout to prevent label cutoff
     plt.tight_layout()
     
     # Save and return filename
@@ -456,3 +495,175 @@ def get_recent_logs(hours: int = 24) -> tuple[list[str], str]:
         logger.error(f"Error retrieving logs: {str(e)}")
         return [], f"An error occurred while retrieving logs: {str(e)}"
 
+async def check_brother_role(interaction: discord.Interaction) -> bool:
+    """
+    Verify if a user has the Brother role.
+    
+    Args:
+        interaction (discord.Interaction): The interaction to check
+        
+    Returns:
+        bool: True if user has Brother role, False otherwise
+    """
+    brother_role = discord.utils.get(interaction.guild.roles, name="Brother")
+    if brother_role is None or brother_role not in interaction.user.roles:
+        await interaction.response.send_message("You must have the Brother role to use this command.", ephemeral=True)
+        return False
+    return True
+
+def clean_old_logs():
+    """
+    Delete log entries that are more than 3 days old from bot.log
+    """
+    try:
+        if not os.path.exists('bot.log'):
+            logger.warning("No log file found to clean")
+            return
+            
+        # Calculate cutoff time (3 days ago)
+        now = time.time()
+        cutoff_time = now - (3 * 24 * 60 * 60)  # 3 days in seconds
+        
+        # Read existing logs
+        with open('bot.log', 'r') as f:
+            logs = f.readlines()
+            
+        if not logs:
+            return
+            
+        # Filter logs newer than cutoff
+        recent_logs = []
+        for line in logs:
+            try:
+                timestamp = line.split(' - ')[0].strip()
+                log_time = time.mktime(datetime.strptime(timestamp, '%Y-%m-%d %H:%M:%S,%f').timetuple())
+                if log_time >= cutoff_time:
+                    recent_logs.append(line)
+            except Exception as e:
+                logger.error(f"Error processing log line during cleanup: {str(e)}")
+                recent_logs.append(line)  # Keep lines we can't parse to be safe
+                
+        # Write filtered logs back to file
+        with open('bot.log', 'w') as f:
+            f.writelines(recent_logs)
+            
+        logger.info(f"Cleaned {len(logs) - len(recent_logs)} old log entries")
+        
+    except Exception as e:
+        logger.error(f"Error cleaning old logs: {str(e)}")
+
+class PointsPlotView(discord.ui.View):
+    def __init__(self, df, pledges):
+        super().__init__(timeout=300)  # 5 minute timeout
+        self.df = df
+        self.pledges = pledges
+        self.current_pledge = pledges[0] if pledges else None
+        
+    @discord.ui.button(label="Previous Pledge", style=discord.ButtonStyle.primary)
+    async def prev_pledge(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if not self.pledges:
+            await interaction.response.send_message("No pledges available", ephemeral=True)
+            return
+            
+        current_idx = self.pledges.index(self.current_pledge)
+        self.current_pledge = self.pledges[current_idx - 1]
+        await self.update_plot(interaction)
+
+    @discord.ui.button(label="Next Pledge", style=discord.ButtonStyle.primary)
+    async def next_pledge(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if not self.pledges:
+            await interaction.response.send_message("No pledges available", ephemeral=True)
+            return
+            
+        current_idx = self.pledges.index(self.current_pledge)
+        self.current_pledge = self.pledges[(current_idx + 1) % len(self.pledges)]
+        await self.update_plot(interaction)
+
+    async def update_plot(self, interaction: discord.Interaction):
+        import matplotlib.pyplot as plt
+        
+        # Filter data for current pledge
+        pledge_data = self.df[self.df['Name'] == self.current_pledge].copy()
+        pledge_data = pledge_data.sort_values('Time')
+        pledge_data['Cumulative'] = pledge_data['Point_Change'].cumsum()
+        
+        # Create plot
+        plt.figure(figsize=(10, 6))
+        plt.plot(pledge_data['Time'], pledge_data['Cumulative'], marker='o')
+        plt.title(f'Points Over Time - {self.current_pledge}')
+        plt.xlabel('Date')
+        plt.ylabel('Total Points')
+        plt.grid(True)
+        plt.xticks(rotation=45)
+        plt.tight_layout()
+        
+        # Save temporary file
+        temp_filename = f'temp_plot_{int(time.time())}.png'
+        plt.savefig(temp_filename)
+        plt.close()
+        
+        # Send updated plot
+        await interaction.response.edit_message(
+            content=f"Showing points for: {self.current_pledge}",
+            attachments=[discord.File(temp_filename)],
+            view=self
+        )
+        
+        # Clean up temporary file
+        os.remove(temp_filename)
+
+async def interactive_plot(interaction: discord.Interaction):
+    """
+    Create an interactive plot using Discord's native buttons
+    
+    Args:
+        interaction (discord.Interaction): The Discord interaction
+    """
+    try:
+        # Read and prepare data
+        import matplotlib.pyplot as plt
+        df = pd.read_csv('Points.csv')
+        df['Time'] = pd.to_datetime(df['Time'], unit='s')
+        
+        # Get active pledges
+        pledges = get_pledges()
+        if not pledges:
+            await interaction.response.send_message("No pledges found in the system.")
+            return
+            
+        # Create view with initial plot
+        view = PointsPlotView(df, pledges)
+        
+        # Generate initial plot
+        temp_filename = f'temp_plot_{int(time.time())}.png'
+        pledge_data = df[df['Name'] == view.current_pledge].copy()
+        pledge_data = pledge_data.sort_values('Time')
+        pledge_data['Cumulative'] = pledge_data['Point_Change'].cumsum()
+        
+        plt.figure(figsize=(10, 6))
+        plt.plot(pledge_data['Time'], pledge_data['Cumulative'], marker='o')
+        plt.title(f'Points Over Time - {view.current_pledge}')
+        plt.xlabel('Date')
+        plt.ylabel('Total Points')
+        plt.grid(True)
+        plt.xticks(rotation=45)
+        plt.tight_layout()
+        plt.savefig(temp_filename)
+        plt.close()
+        
+        # Send initial message with plot
+        await interaction.response.send_message(
+            content=f"Showing points for: {view.current_pledge}",
+            file=discord.File(temp_filename),
+            view=view
+        )
+        
+        # Clean up temporary file
+        os.remove(temp_filename)
+        
+    except Exception as e:
+        logger.error(f"Error in interactive_plot: {str(e)}")
+        await interaction.response.send_message(
+            "An error occurred while creating the interactive plot.",
+            ephemeral=True
+        )
