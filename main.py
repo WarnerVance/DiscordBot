@@ -18,6 +18,7 @@ from logging_config import setup_logging  # Add this import
 import matplotlib.pyplot as plt
 import pandas as pd
 from functions import interactive_plot
+from dotenv import load_dotenv
 
 # Get configured logger
 logger = setup_logging()
@@ -30,6 +31,9 @@ intents = discord.Intents.default()
 intents.message_content = True            # Enable message content intent
 bot = commands.Bot(command_prefix='!', intents=intents)
 bot.start_time = None 
+
+load_dotenv()  # Load environment variables from .env file
+TOKEN = os.getenv('DISCORD_TOKEN')
 
 # Event handler for when bot successfully connects to Discord
 @bot.event
@@ -141,7 +145,7 @@ async def getpoints(interaction: discord.Interaction, name: str, comment: str = 
 
 @bot.tree.command(
     name="change_pledge_points",
-    description="Update points for a specific pledge",
+    description="Request a points change for a pledge",
     extras={"emoji": "📝"}
 )
 @app_commands.autocomplete(name=pledge_name_autocomplete)
@@ -168,18 +172,22 @@ async def updatepoints(interaction: discord.Interaction, name: str, point_change
         await interaction.response.send_message("Error: A comment is required when changing points!", ephemeral=True)
         return
 
-    # Pass the comment to the update_points function
-    result = fn.update_points(name, point_change, comment)
-    caller = interaction.user.display_name
+    # Use add_pending_points instead of direct update
+    result = fn.add_pending_points(name, point_change, comment, interaction.user.display_name)
     if result == 0:
         emoji = "🔺" if point_change > 0 else "🔻"
         await interaction.response.send_message(
-            f"{emoji} {caller} updated points for {name}:\n"
+            f"{emoji} Points change requested by {interaction.user.display_name}:\n"
+            f"Pledge: {name}\n"
             f"Change: {point_change:+d} points\n"
-            f"Comment: {comment}"
+            f"Comment: {comment}\n"
+            f"Status: Awaiting VP Internal approval"
         )
     else:
-        await interaction.response.send_message(f"❌ {caller} failed to find pledge named '{name}'", ephemeral=True)
+        await interaction.response.send_message(
+            f"❌ Failed to submit points change request for '{name}'", 
+            ephemeral=True
+        )
 
 @bot.tree.command(
     name="list_pledges",
@@ -377,7 +385,7 @@ async def before_midnight_update():
 async def main():
     try:
         # First set up the bot
-        await bot.login('MTMxNTEzMTkyMjM1NTE5NTk3NQ.GX3X8s.R5macDjnwGibLgvY0RzUiBP-5uiyOCxHczsmZQ')
+        await bot.login(TOKEN)
         
         # Start the midnight update task
         midnight_update.start()
@@ -474,6 +482,111 @@ async def plot(interaction: discord.Interaction):
                 f"An error occurred while creating the interactive plot: {str(e)}",
                 ephemeral=True
             )
+
+
+@bot.tree.command(
+    name="list_pending_points",
+    description="List all pending points changes"
+)
+@log_command()
+async def listpending(interaction: discord.Interaction):
+    if not await fn.check_brother_role(interaction):
+        return
+        
+    df = fn.get_pending_points_csv()
+    if df.empty:
+        await interaction.response.send_message("No pending points changes.", ephemeral=True)
+        return
+        
+    # Format pending changes
+    pending_list = []
+    df = df.reset_index(drop=True)  # Reset index to ensure it starts from 0
+    for idx in range(len(df)):
+        row = df.iloc[idx]
+        emoji = "🔺" if row['Point_Change'] > 0 else "🔻"
+        # Add debug print
+        logger.info(f"Current index: {idx}")
+        pending_list.append(
+            f"Index {idx}: {emoji} {row['Name']}: {row['Point_Change']:+d} points\n"  # Changed format here
+            f"   Requested by: {row['Requester']}\n"
+            f"   Comment: {row['Comments']}"
+        )
+    
+    await interaction.response.send_message(
+        "Pending Points Changes (Resend this command after approval/disapproval becuase indices will change):\n\n" + "\n\n".join(pending_list)
+    )
+
+@bot.tree.command(
+    name="approve_points",
+    description="Approve pending points changes (VP Internal only). Use comma-separated indices (e.g., '0,1,3')"
+)
+@log_command()
+async def approvepoints(interaction: discord.Interaction, indices: str):
+    if not await fn.check_vp_internal_role(interaction):
+        return
+        
+    # Parse indices
+    try:
+        index_list = [int(idx.strip()) for idx in indices.split(',')]
+        # Sort in reverse order to handle higher indices first
+        index_list.sort(reverse=True)
+    except ValueError:
+        await interaction.response.send_message("❌ Invalid format. Please use comma-separated numbers (e.g., '0,1,3')", ephemeral=True)
+        return
+
+    responses = []
+    for index in index_list:
+        success, message, point_data = fn.approve_pending_points(index)
+        if success:
+            emoji = "🔺" if point_data['Point_Change'] > 0 else "🔻"
+            responses.append(
+                f"✅ Approved points change #{index}:\n"
+                f"{emoji} {point_data['Name']}: {point_data['Point_Change']:+d} points\n"
+                f"Requested by: {point_data['Requester']}\n"
+                f"Comment: {point_data['Comments']}"
+            )
+        else:
+            responses.append(f"❌ Change #{index}: {message}")
+
+    # Reverse the responses so they appear in original index order
+    responses.reverse()
+    await interaction.response.send_message("\n\n".join(responses))
+
+@bot.tree.command(
+    name="reject_points",
+    description="Reject pending points changes (VP Internal only). Use comma-separated indices (e.g., '0,1,3')"
+)
+@log_command()
+async def rejectpoints(interaction: discord.Interaction, indices: str):
+    if not await fn.check_vp_internal_role(interaction):
+        return
+        
+    # Parse indices
+    try:
+        index_list = [int(idx.strip()) for idx in indices.split(',')]
+        # Sort in reverse order to handle higher indices first
+        index_list.sort(reverse=True)
+    except ValueError:
+        await interaction.response.send_message("❌ Invalid format. Please use comma-separated numbers (e.g., '0,1,3')", ephemeral=True)
+        return
+
+    responses = []
+    for index in index_list:
+        success, message, point_data = fn.reject_pending_points(index)
+        if success:
+            emoji = "🔺" if point_data['Point_Change'] > 0 else "🔻"
+            responses.append(
+                f"❌ Rejected points change #{index}:\n"
+                f"{emoji} {point_data['Name']}: {point_data['Point_Change']:+d} points\n"
+                f"Requested by: {point_data['Requester']}\n"
+                f"Comment: {point_data['Comments']}"
+            )
+        else:
+            responses.append(f"❌ Change #{index}: {message}")
+
+    # Reverse the responses so they appear in original index order
+    responses.reverse()
+    await interaction.response.send_message("\n\n".join(responses))
 
 # Run the bot
 if __name__ == "__main__":

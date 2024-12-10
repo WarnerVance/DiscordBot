@@ -667,3 +667,115 @@ async def interactive_plot(interaction: discord.Interaction):
             "An error occurred while creating the interactive plot.",
             ephemeral=True
         )
+
+def get_pending_points_csv():
+    """
+    Get or create the PendingPoints.csv file and return it as a DataFrame
+    Returns:
+        pd.DataFrame: DataFrame containing pending points data
+    """
+    try:
+        if not os.path.exists("PendingPoints.csv"):
+            # Create new DataFrame with all required columns
+            df = pd.DataFrame(columns=["Time", "Name", "Point_Change", "Comments", "Requester"])
+            df.to_csv("PendingPoints.csv", index=False)
+        else:
+            df = pd.read_csv("PendingPoints.csv")
+    except Exception as e:
+        logger.error(f"Error in get_pending_points_csv: {str(e)}")
+        return pd.DataFrame(columns=["Time", "Name", "Point_Change", "Comments", "Requester"])
+    return df
+
+def add_pending_points(name: str, point_change: int, comment: str, requester: str):
+    """
+    Add a pending points change that requires VP Internal approval
+    """
+    try:
+        if not check_pledge(name):
+            return 1
+            
+        df = get_pending_points_csv()
+        
+        new_row = {
+            "Time": time.time(),
+            "Name": name,
+            "Point_Change": point_change,
+            "Comments": comment,
+            "Requester": requester
+        }
+        
+        df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
+        df.to_csv("PendingPoints.csv", index=False)
+        return 0
+    except Exception as e:
+        logger.error(f"Error adding pending points: {str(e)}")
+        return 1
+
+async def check_vp_internal_role(interaction: discord.Interaction) -> bool:
+    """
+    Verify if a user has the VP Internal role.
+    """
+    vp_role = discord.utils.get(interaction.guild.roles, name="VP Internal")
+    if vp_role is None or vp_role not in interaction.user.roles:
+        await interaction.response.send_message(
+            "You must have the VP Internal role to use this command.", 
+            ephemeral=True
+        )
+        return False
+    return True
+
+def approve_pending_points(index: int) -> tuple[bool, str, dict]:
+    """
+    Approve a pending points change and apply it
+    Returns:
+        tuple: (success, message, point_data)
+    """
+    try:
+        # Get pending points DataFrame
+        df_pending = get_pending_points_csv()
+        
+        # Validate index
+        if index < 0 or index >= len(df_pending):
+            return False, f"Invalid index: {index}. Valid range is 0-{len(df_pending)-1}", {}
+            
+        # Get the point data at the specified index
+        point_data = df_pending.iloc[index].to_dict()
+        
+        # Apply the points change
+        result = update_points(
+            point_data['Name'],
+            point_data['Point_Change'],
+            point_data['Comments']
+        )
+        
+        if result == 0:
+            # Remove the approved entry
+            df_pending = df_pending.drop(index)
+            df_pending.to_csv("PendingPoints.csv", index=False)
+            return True, "Points approved and applied", point_data
+            
+        return False, "Failed to apply points", point_data
+        
+    except Exception as e:
+        logger.error(f"Error approving points: {str(e)}")
+        return False, f"Error: {str(e)}", {}
+
+def reject_pending_points(index: int) -> tuple[bool, str, dict]:
+    """
+    Reject and remove a pending points change
+    """
+    try:
+        df_pending = get_pending_points_csv()
+        
+        # Validate index
+        if index < 0 or index >= len(df_pending):
+            return False, f"Invalid index: {index}. Valid range is 0-{len(df_pending)-1}", {}
+            
+        point_data = df_pending.iloc[index].to_dict()
+        df_pending = df_pending.drop(index)
+        df_pending.to_csv("PendingPoints.csv", index=False)
+        return True, "Points rejected", point_data
+        
+    except Exception as e:
+        logger.error(f"Error rejecting points: {str(e)}")
+        return False, f"Error: {str(e)}", {}

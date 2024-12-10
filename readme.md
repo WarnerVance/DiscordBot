@@ -10,6 +10,7 @@ A Discord bot for managing pledge points and rankings.
 - Generate graphs showing point distributions and history
 - Automated daily updates
 - Comprehensive logging and status monitoring
+- Approval system for point changes
 
 ## Commands
 
@@ -25,6 +26,9 @@ A Discord bot for managing pledge points and rankings.
 - `/show_pledge_ranking` - Display current pledge rankings
 - `/show_points_history` - Display points progression over time
 - `/export_points_file` - Export points data as CSV
+- `/approve_points` - Approve pending point changes
+- `/reject_points` - Reject pending point changes
+- `/pending_points` - View all pending point changes
 
 ### System Commands
 - `/status` - Get bot and server status information
@@ -51,3 +55,5 @@ A Discord bot for managing pledge points and rankings.
 - Points changes limited to ±35 points per update
 - Daily updates posted at 5:00 and 6:00 UTC
 - Comprehensive error handling and logging
+- Point changes require approval from a second Brother
+- Pending changes expire after 24 hours if not approved/rejected
