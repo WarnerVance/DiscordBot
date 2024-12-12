@@ -28,7 +28,7 @@ def get_points_csv():
     """
     Get or create the Points.csv file and return it as a DataFrame
     Returns:
-        pd.DataFrame: DataFrame containing points data
+        A pandas DataFrame
     """
     try:
         if not os.path.exists("Points.csv"):

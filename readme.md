@@ -57,3 +57,9 @@ A Discord bot for managing pledge points and rankings.
 - Comprehensive error handling and logging
 - Point changes require approval from a second Brother
 - Pending changes expire after 24 hours if not approved/rejected
+
+## Testing
+
+To run tests, use `pytest tests/test_functions.py`.
+
+    
