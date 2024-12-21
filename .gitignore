@@ -168,3 +168,4 @@ pledge_points_graph.png
 PendingPoints.csv
 pledges.csv
 Points.csv
+*.csv
