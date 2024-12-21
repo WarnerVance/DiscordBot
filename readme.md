@@ -61,5 +61,5 @@ A Discord bot for managing pledge points and rankings.
 ## Testing
 
 To run tests, use `pytest tests/test_functions.py`.
-
+asdf
     
