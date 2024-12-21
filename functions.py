@@ -32,18 +32,19 @@ def get_points_csv():
     """
     try:
         if not os.path.exists("Points.csv"):
-            # Create new DataFrame with all required columns
             df = pd.DataFrame(columns=["Time", "Name", "Point_Change", "Comments"])
             df.to_csv("Points.csv", index=False)
         else:
-            df = pd.read_csv("Points.csv")
-            # Add Comments column if it doesn't exist
-            if "Comments" not in df.columns:
-                df["Comments"] = ""
-                df.to_csv("Points.csv", index=False)
+            try:
+                df = pd.read_csv("Points.csv")
+                # Verify required columns exist
+                required_columns = ["Time", "Name", "Point_Change", "Comments"]
+                if not all(col in df.columns for col in required_columns):
+                    df = pd.DataFrame(columns=required_columns)
+            except:
+                df = pd.DataFrame(columns=["Time", "Name", "Point_Change", "Comments"])
     except Exception as e:
         logger.error(f"Error in get_points_csv: {str(e)}")
-        # Return empty DataFrame with correct columns if there's an error
         return pd.DataFrame(columns=["Time", "Name", "Point_Change", "Comments"])
     return df
 
@@ -67,6 +68,11 @@ def update_points(name: str, point_change: int, comment: str):
             
         if not isinstance(point_change, (int, float)):
             logger.error(f"Invalid point_change type: {type(point_change)}")
+            return 1
+            
+        # Convert to int and validate range
+        point_change = int(point_change)
+        if abs(point_change) > 35:  # Enforce point limit
             return 1
             
         if not comment or not isinstance(comment, str) or not comment.strip():
@@ -201,8 +207,14 @@ def add_pledge(name):
     Args:
         name (str): Name of pledge to add
     Returns:
-        int: 0 for success, 1 if pledge already exists
+        int: 0 for success, 1 if pledge already exists or invalid
     """
+    # Input validation
+    if not isinstance(name, str) or not name.strip():
+        return 1
+    if len(name) > 50:  # Add length validation
+        return 1
+    
     if check_pledge(name):
         return 1
     else:
