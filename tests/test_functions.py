@@ -145,8 +145,86 @@ def test_visualization_functions(setup_test_files):
     assert timeline_file.endswith('.png')
     
     # Verify images are valid
+    img_points = plt.imread(graph_file)
+    img_timeline = plt.imread(timeline_file)
+    
+    # Test image dimensions and properties
+    assert img_points.shape[2] in [3, 4]  # RGB or RGBA
+    assert img_timeline.shape[2] in [3, 4]
+    assert img_points.shape[0] >= 400  # Height
+    assert img_points.shape[1] >= 600  # Width
+    assert img_timeline.shape[0] >= 400
+    assert img_timeline.shape[1] >= 600
+    
+    # Clean up
+    plt.close('all')
+
+def test_graph_with_no_data(setup_test_files):
+    """Test graph generation with empty data"""
+    # Create empty Points.csv
+    df = pd.DataFrame(columns=["Time", "Name", "Point_Change", "Comments"])
+    df.to_csv("Points.csv", index=False)
+    
+    # Test points graph
+    graph_file = fn.get_points_graph()
+    assert os.path.exists(graph_file)
+    
+    # Test timeline graph
+    timeline_file = fn.get_points_over_time()
+    assert os.path.exists(timeline_file)
+    
+    # Verify images are valid
     plt.imread(graph_file)
     plt.imread(timeline_file)
+    
+    # Clean up
+    plt.close('all')
+
+@pytest.mark.asyncio
+async def test_interactive_plot(setup_test_files):
+    """Test generation of interactive plot"""
+    # Mock Discord interaction
+    mock_interaction = MagicMock()
+    mock_interaction.response = MagicMock()
+    mock_interaction.response.send_message = AsyncMock()
+    
+    # Test interactive plot generation
+    await fn.interactive_plot(mock_interaction)
+    
+    # Verify interaction was called
+    mock_interaction.response.send_message.assert_called_once()
+    
+    # Clean up any temporary files
+    for file in os.listdir():
+        if file.startswith('temp_plot_') and file.endswith('.png'):
+            os.remove(file)
+
+def test_graph_updates(setup_test_files):
+    """Test that graphs update when data changes"""
+    # Generate initial graphs
+    initial_points_graph = fn.get_points_graph()
+    initial_timeline = fn.get_points_over_time()
+    
+    # Record initial modification times
+    initial_points_mtime = os.path.getmtime(initial_points_graph)
+    initial_timeline_mtime = os.path.getmtime(initial_timeline)
+    
+    # Wait a second to ensure different modification time
+    time.sleep(1)
+    
+    # Add new data
+    fn.update_points("TestPledge1", 25, "Test update")
+    
+    # Generate new graphs
+    new_points_graph = fn.get_points_graph()
+    new_timeline = fn.get_points_over_time()
+    
+    # Verify files were updated
+    assert os.path.getmtime(new_points_graph) > initial_points_mtime
+    assert os.path.getmtime(new_timeline) > initial_timeline_mtime
+    
+    # Clean up
+    plt.close('all')
 
 # Test Role Checking
 @pytest.mark.asyncio
