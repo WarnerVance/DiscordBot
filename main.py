@@ -40,6 +40,33 @@ TOKEN = os.getenv('DISCORD_TOKEN')
 async def on_ready():
     if bot.start_time is None:  # Only set on first connection
         bot.start_time = datetime.now(pytz.UTC)
+        
+    # Initialize required CSV files if they don't exist
+    try:
+        # Create pledges.csv if it doesn't exist
+        if not os.path.exists('pledges.csv'):
+            logger.info("Creating pledges.csv file")
+            with open('pledges.csv', 'w') as f:
+                f.write("")  # Create empty file
+                
+                
+        # Create Points.csv if it doesn't exist
+        if not os.path.exists('Points.csv'):
+            logger.info("Creating Points.csv file")
+            df = pd.DataFrame(columns=["Time", "Name", "Point_Change", "Comments"])
+            df.to_csv("Points.csv", index=False)
+            del df
+            
+        # Create PendingPoints.csv if it doesn't exist
+        if not os.path.exists('PendingPoints.csv'):
+            logger.info("Creating PendingPoints.csv file")
+            df = pd.DataFrame(columns=["Time", "Name", "Point_Change", "Comments", "Requester"])
+            df.to_csv("PendingPoints.csv", index=False)
+            del df
+            
+    except Exception as e:
+        logger.error(f"Error initializing CSV files: {str(e)}")
+
     logger.info(f'{bot.user} has connected to Discord!')
     try:
         # Synchronize slash commands with Discord's API
