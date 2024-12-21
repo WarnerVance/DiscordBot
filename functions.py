@@ -30,23 +30,23 @@ def get_points_csv():
     Returns:
         A pandas DataFrame
     """
-    # try:
-    #     if not os.path.exists("Points.csv"):
-    #         df = pd.DataFrame(columns=["Time", "Name", "Point_Change", "Comments"])
-    #         df.to_csv("Points.csv", index=False)
-    #     else:
-    #         try:
-    #             df = pd.read_csv("Points.csv")
-    #             # Verify required columns exist
-    #             required_columns = ["Time", "Name", "Point_Change", "Comments"]
-    #             if not all(col in df.columns for col in required_columns):
-    #                 df = pd.DataFrame(columns=required_columns)
-    #         except:
-    #             df = pd.DataFrame(columns=["Time", "Name", "Point_Change", "Comments"])
-    # except Exception as e:
-    #     logger.error(f"Error in get_points_csv: {str(e)}")
-    #     return pd.DataFrame(columns=["Time", "Name", "Point_Change", "Comments"])
-    # return df
+    try:
+        if not os.path.exists("Points.csv"):
+            df = pd.DataFrame(columns=["Time", "Name", "Point_Change", "Comments"])
+            df.to_csv("Points.csv", index=False)
+        else:
+            try:
+                df = pd.read_csv("Points.csv")
+                # Verify required columns exist
+                required_columns = ["Time", "Name", "Point_Change", "Comments"]
+                if not all(col in df.columns for col in required_columns):
+                    df = pd.DataFrame(columns=required_columns)
+            except:
+                df = pd.DataFrame(columns=["Time", "Name", "Point_Change", "Comments"])
+    except Exception as e:
+        logger.error(f"Error in get_points_csv: {str(e)}")
+        return pd.DataFrame(columns=["Time", "Name", "Point_Change", "Comments"])
+    return df
 
 def update_points(name: str, point_change: int, comment: str):
     """
