@@ -19,5 +19,5 @@ def add_interview(pledge, brother, quality, time):
         df.loc[len(df)] = added_interview
         return 0
     except:
-        logger.error('error adding interview')
+        logger.error('Error adding interview')
         return 1
