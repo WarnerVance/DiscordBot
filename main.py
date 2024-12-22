@@ -17,6 +17,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 from functions import interactive_plot
 from dotenv import load_dotenv
+import interviews as interviews
 
 # Get configured logger
 logger = setup_logging()
@@ -63,9 +64,11 @@ async def on_ready():
             del df
         # Create interviews.csv if it doesn't exist
         if not os.path.exists('interviews.csv'):
-            logger.info("Creating interviews.csv file")
-            with open('interviews.csv', 'w') as f:
-                f.write("Time,Pledge,Brother,Quality\n")
+            logger.info("Creating PendingPoints.csv file")
+            df = pd.DataFrame(columns=["Time", "Pledge", "Brother", "Quality"])
+            df.to_csv("interviews.csv", index=False)
+            del df
+
             
     except Exception as e:
         logger.error(f"Error initializing CSV files: {str(e)}")
