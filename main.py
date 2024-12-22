@@ -61,6 +61,11 @@ async def on_ready():
             df = pd.DataFrame(columns=["Time", "Name", "Point_Change", "Comments", "Requester"])
             df.to_csv("PendingPoints.csv", index=False)
             del df
+        # Create interviews.csv if it doesn't exist
+        if not os.path.exists('interviews.csv'):
+            logger.info("Creating interviews.csv file")
+            with open('interviews.csv', 'w') as f:
+                f.write("Time,Pledge,Brother,Quality\n")
             
     except Exception as e:
         logger.error(f"Error initializing CSV files: {str(e)}")
