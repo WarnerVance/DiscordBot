@@ -1,6 +1,9 @@
 import pandas as pd
 import functions as fn
 from logging import getLogger
+from logging_config import setup_logging
+logger = setup_logging()
+
 def add_interview(pledge, brother, quality, time):
     if pledge == '' or brother == '' or time == '':
         logger.error('empty field')
