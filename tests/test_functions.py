@@ -112,6 +112,14 @@ def test_points_system(setup_test_files):
     assert isinstance(points, (int, float, np.integer, np.floating))
     assert points == 15  # 10 from setup + 5 from update
     assert fn.get_pledge_points("NonexistentPledge") is None
+    
+    # Test point retrieval with df 
+    df = fn.get_points_csv()
+    points = fn.get_pledge_points("TestPledge1", df)
+    assert isinstance(points, (int, float, np.integer, np.floating))
+    assert points == 15  # 10 from setup + 5 from update
+    assert fn.get_pledge_points("NonexistentPledge") is None
+    del df
 
 # Test Pending Points System
 def test_pending_points_system(setup_test_files):
