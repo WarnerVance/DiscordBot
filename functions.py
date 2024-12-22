@@ -187,18 +187,22 @@ def update_points(name: str, point_change: int, comment: str):
         logger.error(f"Unexpected error in update_points: {str(e)}")
         return 1
 
-def get_pledge_points(name):
+def get_pledge_points(name, df=None):
     """
     Get total points for a specific pledge
     Args:
-        name (str): Name of pledge
+        name (str): Name of pledge, df (pd.DataFrame): DataFrame of points data (optional, if not given will call get_points_csv)
     Returns:
         int: Total points for pledge, or None if pledge doesn't exist
     """
     if check_pledge(name):
-        df = get_points_csv()
-        points = df[df["Name"] == name]["Point_Change"].sum()
-        return points
+        if df is None:
+            df = get_points_csv()
+            points = df[df["Name"] == name]["Point_Change"].sum()
+            return points
+        elif df is not None:
+            points = df[df["Name"] == name]["Point_Change"].sum()
+            return points
     return None
 
 def add_pledge(name):
