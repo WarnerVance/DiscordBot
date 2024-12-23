@@ -78,3 +78,36 @@ def get_quality_interviews(pledge, interview_df=None):
             interviews = int(interviews)
             return interviews
     return None
+
+def interview_summary(df = None):
+    """
+    Returns summary of interview
+    :param df: Optional input pandas dataframe of interview data
+    :return: Pandas Dataframe of summary data
+    """
+    # Load data
+    if df is None:
+        try:
+            df_input = pd.read_csv('interviews.csv')
+        except Exception as e:
+            logger.error(f'error reading interviews.csv: {e}')
+            return 1
+    else:
+        df_input = df
+    df_output = pd.DataFrame(columns=["Pledge", "NumberOfInterviews", "PercentQuality"])
+    # Get Pledge Names
+    with open('pledges.csv', 'r') as fil:
+        pledge_names = [line.rstrip('\n') for line in fil]
+    df_output['Pledge'] = pledge_names
+    # count the number of interviews that each pledge has
+    number_of_interviews = []
+    for i in pledge_names:
+        number_of_interviews.append(df_input["Pledge"].value_counts().get(i,0))
+    df_output['NumberOfInterviews'] = number_of_interviews
+    # Get the Quality interview data
+    number_of_quality_interviews = []
+    for i in pledge_names:
+        number_of_quality_interviews.append(get_quality_interviews(i, df_input))
+    df_output["NQuality"] = number_of_quality_interviews
+    df_output["PercentQuality"] = df_output["NQuality"]/df_output["NumberOfInterviews"]*100
+    return df_output
