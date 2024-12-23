@@ -359,7 +359,7 @@ async def on_app_command_error(interaction: discord.Interaction, error: app_comm
 @log_command()
 async def addinterview(interaction: discord.Interaction, pledge: str, brother: str, quality: int):
     if not await fn.check_brother_role(interaction):
-        logger.warning(f"Brother {brother} authentication failed")
+        logger.warning(f"Brother {interaction} authentication failed")
         await interaction.response.send_message("Brother authentication failed.", ephemeral=True)
         return
     if not fn.check_pledge(pledge):
@@ -379,7 +379,7 @@ async def addinterview(interaction: discord.Interaction, pledge: str, brother: s
 @log_command()
 async def getinterviewrankings(interaction: discord.Interaction):
     if not await fn.check_brother_role(interaction):
-        logger.warning(f"Brother {brother} authentication failed")
+        logger.warning(f"Brother {interaction} authentication failed")
         await interaction.response.send_message("Brother authentication failed.", ephemeral=True)
         return
     rankings = interviews.interview_rankings()
@@ -392,7 +392,7 @@ async def getinterviewrankings(interaction: discord.Interaction):
 @log_command()
 async def getinterviewsummary(interaction: discord.Interaction):
     if not await fn.check_brother_role(interaction):
-        logger.warning(f"Brother {brother} authentication failed")
+        logger.warning(f"Brother {interaction} authentication failed")
         await interaction.response.send_message("Brother authentication failed.", ephemeral=True)
     pledges = fn.get_pledges()
     n = 0
