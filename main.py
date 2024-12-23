@@ -373,35 +373,35 @@ async def addinterview(interaction: discord.Interaction, pledge: str, brother: s
     await interaction.response.send_message(
         f"Exit Code: {interviews.add_interview(pledge, brother, int(quality), time.time())}")
 
-# TODO: Fix this
-@bot.tree.command(name="get_interview_rankings", description="Get a list of pledges by number of interviews")
-@timeout_command()
-@log_command()
-async def getinterviewrankings(interaction: discord.Interaction):
-    if not await fn.check_brother_role(interaction):
-        logger.warning(f"Brother {interaction} authentication failed")
-        await interaction.response.send_message("Brother authentication failed.", ephemeral=True)
-        return
-    rankings = interviews.interview_rankings()
-    response = "\n".join(rankings)
-    await interaction.response.send_message(f"Current Rankings:\n{response}")
-
-
-@bot.tree.command(name="interview_summary", description="Get a summary of all interview data")
-@timeout_command()
-@log_command()
-async def getinterviewsummary(interaction: discord.Interaction):
-    if not await fn.check_brother_role(interaction):
-        logger.warning(f"Brother {interaction} authentication failed")
-        await interaction.response.send_message("Brother authentication failed.", ephemeral=True)
-    pledges = fn.get_pledges()
-    n = 0
-    responses = []
-    df = interviews.interview_summary()
-    for i in len(pledges):
-        pledge = pledges[i]
-        responses.append(f"{n}. {pledge}")
-
+# # TODO: Fix this
+# @bot.tree.command(name="get_interview_rankings", description="Get a list of pledges by number of interviews")
+# @timeout_command()
+# @log_command()
+# async def getinterviewrankings(interaction: discord.Interaction):
+#     if not await fn.check_brother_role(interaction):
+#         logger.warning(f"Brother {interaction} authentication failed")
+#         await interaction.response.send_message("Brother authentication failed.", ephemeral=True)
+#         return
+#     rankings = interviews.interview_rankings()
+#     response = "\n".join(rankings)
+#     await interaction.response.send_message(f"Current Rankings:\n{response}")
+#
+#
+# @bot.tree.command(name="interview_summary", description="Get a summary of all interview data")
+# @timeout_command()
+# @log_command()
+# async def getinterviewsummary(interaction: discord.Interaction):
+#     if not await fn.check_brother_role(interaction):
+#         logger.warning(f"Brother {interaction} authentication failed")
+#         await interaction.response.send_message("Brother authentication failed.", ephemeral=True)
+#     pledges = fn.get_pledges()
+#     n = 0
+#     responses = []
+#     df = interviews.interview_summary()
+#     for i in len(pledges):
+#         pledge = pledges[i]
+#         responses.append(f"{n}. {pledge}")
+#
 
 # Add reconnection logic
 @bot.event
