@@ -13,8 +13,8 @@ def add_interview(pledge, brother, quality, time):
         return 1
     try:
         df = pd.read_csv('interviews.csv')
-    except Exception:
-       logger.error('error reading interviews.csv')
+    except Exception as e:
+       logger.error(f'error reading interviews.csv {e}')
        return 1 
     try:
         if quality == '':
@@ -23,8 +23,8 @@ def add_interview(pledge, brother, quality, time):
         df.loc[len(df)] = added_interview
         df.to_csv('interviews.csv', index=False)
         return 0
-    except Exception:
-        logger.error('Error adding interview')
+    except Exception as e:
+        logger.error(f'Error adding interview {e}')
         return 1
 
 def get_pledge_interviews(pledge):
@@ -39,22 +39,28 @@ def get_pledge_interviews(pledge):
             return df.loc[df['Pledge'] == pledge]
         else:
             return 1
-    except Exception:
-        logger.error('error getting pledge')
+    except Exception as e:
+        logger.error(f'error getting pledge {e}')
         return 1
 def get_brother_interviews(brother):
     try:
         df = pd.read_csv('interviews.csv')
         return df.loc[df['Brother'] == brother]
-    except Exception:
-        logger.error('error getting brother')
+    except Exception as e:
+        logger.error(f'error getting brother {e}')
 
-def interview_rankings():
-    try:
-        df = pd.read_csv('interviews.csv')
-    except Exception:
-        logger.error('error reading interviews.csv')
-        return 1
+def interview_rankings(df=None):
+    """
+    Returns a dataframe of interview rankings
+    :param df: Optional dataframe of interview rankings. Will read interviews.csv if none provided
+    :return: pandas dataframe of interview rankings
+    """
+    if df is None:
+        try:
+            df = pd.read_csv('interviews.csv')
+        except Exception as e:
+            logger.error(f'error reading interviews.csv {e}')
+            return 1
     df = df.drop(["Brother", "Quality", "Time"], axis=1)
     grouped = df.groupby('Pledge')
     counts = grouped.value_counts()
@@ -83,7 +89,7 @@ def interview_summary(df = None):
     """
     Returns summary of interview
     :param df: Optional input pandas dataframe of interview data
-    :return: Pandas Dataframe of summary data
+    :return: Pandas Dataframe of summary data with columns 'Pledge', 'NumberOfInterviews', 'PercentQuality', 'NQuality'
     """
     # Load data
     if df is None:
@@ -111,3 +117,21 @@ def interview_summary(df = None):
     df_output["NQuality"] = number_of_quality_interviews
     df_output["PercentQuality"] = df_output["NQuality"]/df_output["NumberOfInterviews"]*100
     return df_output
+
+def brother_interview_rankings(df=None):
+    """
+    Returns a dataframe of interview rankings by brother
+    :param df: Optional dataframe of interview rankings. Will read interviews.csv if none provided
+    :return: pandas dataframe of interview rankings
+    """
+    if df is None:
+        try:
+            df = pd.read_csv('interviews.csv')
+        except Exception as e:
+            logger.error(f'error reading interviews.csv {e}')
+            return 1
+    df = df.drop(["Pledge", "Quality", "Time"], axis=1)
+    grouped = df.groupby('Brother')
+    counts = grouped.value_counts()
+    counts = counts.sort_values(ascending=False)
+    return counts
