@@ -373,7 +373,7 @@ async def addinterview(interaction: discord.Interaction, pledge: str, brother: s
         f"Added interview! Exit Code: {interviews.add_interview(pledge, brother, int(quality), time.time())}")
 
 
-# TODO: Fix this
+
 @bot.tree.command(name="get_interview_rankings", description="Get a list of pledges by number of interviews")
 @timeout_command()
 @log_command()
@@ -385,11 +385,13 @@ async def getinterviewrankings(interaction: discord.Interaction):
     rankings = interviews.interview_rankings()
     Pledges = pd.Series(rankings).index.tolist()
     Numbers = pd.Series(rankings).values.tolist()
-    print(Pledges, Numbers)
-    # for i in Pledges:
-    #     # fasfd
-    #     break
-    await interaction.response.send_message("Current Rankings")
+    response = ""
+    n = 0
+    for i in Pledges:
+        response += f"{n + 1}. "
+        response += f"{i}: {Numbers[n]} interviews \n"
+        n += 1
+    await interaction.response.send_message(response)
 
 # @bot.tree.command(name="interview_summary", description="Get a summary of all interview data")
 # @timeout_command()
