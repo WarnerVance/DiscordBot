@@ -51,7 +51,7 @@ def setup_test_files():
         'Brother': ['TestBrother'],
         "Quality": [0],
     })
-    test_interviews.to_csv('Interviews.csv', index=False)
+    test_interviews.to_csv('interviews.csv', index=False)
 
     yield
     
