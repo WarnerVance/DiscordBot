@@ -1,25 +1,24 @@
 # Import required libraries for Discord bot functionality
-import os  # File and path operations
-import time
-
-import discord  # Discord API wrapper
-from discord.ext import commands, tasks  # Discord bot commands and scheduled tasks
-from discord import app_commands  # Discord slash commands
-import certifi  # SSL certificate handling
-import ssl  # Secure connection support
-import functions as fn  # Custom functions for pledge management
 import asyncio  # Asynchronous I/O support
 import functools  # Function and decorator tools
-from datetime import datetime, time as datetime_time  # Date and time handling
-import pytz  # Timezone support
-import psutil  # System information
+import os  # File and path operations
 import platform  # System information
-from logging_config import setup_logging  # Add this import
-import matplotlib.pyplot as plt
+import ssl  # Secure connection support
+import time
+from datetime import datetime, time as datetime_time  # Date and time handling
+
+import certifi  # SSL certificate handling
+import discord  # Discord API wrapper
 import pandas as pd
-from functions import interactive_plot
+import psutil  # System information
+import pytz  # Timezone support
+from discord import app_commands  # Discord slash commands
+from discord.ext import commands, tasks  # Discord bot commands and scheduled tasks
 from dotenv import load_dotenv
+
+import functions as fn  # Custom functions for pledge management
 import interviews as interviews
+from logging_config import setup_logging  # Add this import
 
 # Get configured logger
 logger = setup_logging()
@@ -366,27 +365,32 @@ async def addinterview(interaction: discord.Interaction, pledge: str, brother: s
         await interaction.response.send_message("Invalid pledge.")
         logger.error(f"Invalid pledge: {pledge}")
         return
-    if not quality in [0, 1]:
+    if quality not in [0, 1]:
         await interaction.response.send_message("Invalid quality. Quality must be 0 or 1.", ephemeral=True)
         logger.error(f"Invalid quality: {quality}")
         return
     await interaction.response.send_message(
-        f"Exit Code: {interviews.add_interview(pledge, brother, int(quality), time.time())}")
+        f"Added interview! Exit Code: {interviews.add_interview(pledge, brother, int(quality), time.time())}")
 
-# # TODO: Fix this
-# @bot.tree.command(name="get_interview_rankings", description="Get a list of pledges by number of interviews")
-# @timeout_command()
-# @log_command()
-# async def getinterviewrankings(interaction: discord.Interaction):
-#     if not await fn.check_brother_role(interaction):
-#         logger.warning(f"Brother {interaction} authentication failed")
-#         await interaction.response.send_message("Brother authentication failed.", ephemeral=True)
-#         return
-#     rankings = interviews.interview_rankings()
-#     response = "\n".join(rankings)
-#     await interaction.response.send_message(f"Current Rankings:\n{response}")
-#
-#
+
+# TODO: Fix this
+@bot.tree.command(name="get_interview_rankings", description="Get a list of pledges by number of interviews")
+@timeout_command()
+@log_command()
+async def getinterviewrankings(interaction: discord.Interaction):
+    if not await fn.check_brother_role(interaction):
+        logger.warning(f"Brother {interaction} authentication failed")
+        await interaction.response.send_message("Brother authentication failed.", ephemeral=True)
+        return
+    rankings = interviews.interview_rankings()
+    Pledges = pd.Series(rankings).index.tolist()
+    Numbers = pd.Series(rankings).values.tolist()
+    print(Pledges, Numbers)
+    # for i in Pledges:
+    #     # fasfd
+    #     break
+    await interaction.response.send_message("Current Rankings")
+
 # @bot.tree.command(name="interview_summary", description="Get a summary of all interview data")
 # @timeout_command()
 # @log_command()
