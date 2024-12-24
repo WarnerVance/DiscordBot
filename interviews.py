@@ -6,6 +6,14 @@ from logging_config import setup_logging
 logger = setup_logging()
 
 def add_interview(pledge, brother, quality, time):
+    """
+    Add a new interview to the database.
+    :param pledge: Name of Pledge
+    :param brother: Name of brother
+    :param quality: int, 0 or 1, 1 for good quality
+    :param time: current time.time timestamp
+    :return: 0 for success, 1 for failure
+    """
     if pledge == '' or brother == '' or time == '':
         logger.error('empty field')
         return 1 
