@@ -1,4 +1,5 @@
 import pandas as pd
+
 import functions as fn
 from logging_config import setup_logging
 
@@ -17,8 +18,9 @@ def add_interview(pledge, brother, quality, time):
        logger.error(f'error reading interviews.csv {e}')
        return 1 
     try:
-        if quality == '':
-            quality = 'x'
+        if quality not in [0, 1]:
+            logger.error('Invalid quality')
+            return 1
         added_interview = [time, pledge, brother, quality]
         df.loc[len(df)] = added_interview
         df.to_csv('interviews.csv', index=False)
