@@ -393,21 +393,27 @@ async def getinterviewrankings(interaction: discord.Interaction):
         n += 1
     await interaction.response.send_message(response)
 
-# @bot.tree.command(name="interview_summary", description="Get a summary of all interview data")
-# @timeout_command()
-# @log_command()
-# async def getinterviewsummary(interaction: discord.Interaction):
-#     if not await fn.check_brother_role(interaction):
-#         logger.warning(f"Brother {interaction} authentication failed")
-#         await interaction.response.send_message("Brother authentication failed.", ephemeral=True)
-#     pledges = fn.get_pledges()
-#     n = 0
-#     responses = []
-#     df = interviews.interview_summary()
-#     for i in len(pledges):
-#         pledge = pledges[i]
-#         responses.append(f"{n}. {pledge}")
-#
+
+@bot.tree.command(name="get_interview_summary", description="Get a summary of all interview data")
+@timeout_command()
+@log_command()
+async def getinterviewsummary(interaction: discord.Interaction):
+    if not await fn.check_brother_role(interaction):
+        logger.warning(f"Brother {interaction} authentication failed")
+        await interaction.response.send_message("Brother authentication failed.", ephemeral=True)
+    responses = []
+    df = interviews.interview_summary()
+    pledges = df["Pledge"].tolist()
+    n_interviews = df["NumberOfInterviews"].tolist()
+    n_quality = df["NQuality"].tolist()
+    percent_quality = df["PercentQuality"].tolist()
+    response = ""
+    for i in range(len(pledges)):
+        response += f"{i + 1}. "
+        response += f"{pledges[i]}: {n_interviews[i]} interviews \n"
+        response += f"      {n_quality[i]} quality interview(s) which is {percent_quality[i]}% of interviews\n"
+    await interaction.response.send_message(response)
+
 
 # Add reconnection logic
 @bot.event
