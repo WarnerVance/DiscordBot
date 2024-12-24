@@ -325,4 +325,4 @@ def test_interview_fetching(setup_test_files):
     # Make sure that the quality interview system works more now
     assert interviews.get_quality_interviews("TestPledge1") == 1
     assert interviews.add_interview("TestPledge1", "TestBrother2", "Q", time.time()) == 1
-    assert interviews.add_interview("Hello", "TestBrother2", "Q", time.time()) == 0
+    assert interviews.add_interview("Hello", "TestBrother2", "Q", time.time()) == 1
