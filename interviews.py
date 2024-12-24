@@ -41,7 +41,7 @@ def get_pledge_interviews(pledge):
     """
     Gets a dataframe of pledge interviews for a specific pledge
     :param pledge: Name of Pledge to check
-    :return: pandas dataframe of pledge interviews
+    :return: pandas dataframe of pledge interviews. Columns Time,Pledge,Brother,Quality
     """
     try:
         if fn.check_pledge(pledge):
