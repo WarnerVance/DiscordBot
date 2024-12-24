@@ -401,7 +401,6 @@ async def getinterviewsummary(interaction: discord.Interaction):
     if not await fn.check_brother_role(interaction):
         logger.warning(f"Brother {interaction} authentication failed")
         await interaction.response.send_message("Brother authentication failed.", ephemeral=True)
-    responses = []
     df = interviews.interview_summary()
     pledges = df["Pledge"].tolist()
     n_interviews = df["NumberOfInterviews"].tolist()
@@ -413,6 +412,22 @@ async def getinterviewsummary(interaction: discord.Interaction):
         response += f"{pledges[i]}: {n_interviews[i]} interviews \n"
         response += f"      {n_quality[i]} quality interview(s) which is {percent_quality[i]}% of interviews\n"
     await interaction.response.send_message(response)
+
+
+@bot.tree.command(name="get_interviews", description="Get a list of all interviews for a specific pledge")
+@app_commands.autocomplete(pledge=pledge_name_autocomplete)
+@timeout_command()
+@log_command()
+async def getinterviews(interaction: discord.Interaction, pledge: str):
+    if not await fn.check_brother_role(interaction):
+        logger.warning(f"Brother {interaction} authentication failed")
+        await interaction.response.send_message("Brother authentication failed.", ephemeral=True)
+        return 0
+    df = interviews.get_pledge_interviews(pledge)
+    df.drop(columns="Pledge", inplace=True)
+    df["DateTime"] = pd.to_datetime(df["Time"], unit="s")
+    # df["Datetime"].dt.tz_localize(tz = "utc") # TODO: This line of code doesn't work, please fix it
+    await interaction.response.send_message(df)
 
 
 # Add reconnection logic
