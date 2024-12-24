@@ -1,14 +1,16 @@
-import pytest
-import pandas as pd
 import os
-import time
-from unittest.mock import MagicMock, patch, AsyncMock
-import numpy as np
-from datetime import datetime
-import matplotlib.pyplot as plt
-
 # Add project root to Python path
 import sys
+import time
+from unittest.mock import MagicMock, patch, AsyncMock
+
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import pytest
+
+import interviews as interviews
+
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import functions as fn
 
@@ -41,12 +43,21 @@ def setup_test_files():
         'Requester': ['TestBrother']
     })
     test_pending.to_csv('PendingPoints.csv', index=False)
-    
+
+    # Create interviews
+    test_interviews = pd.DataFrame({
+        'Time': [time.time()],
+        'Pledge': ['TestPledge1'],
+        'Brother': ['TestBrother'],
+        "Quality": [0],
+    })
+    test_interviews.to_csv('Interviews.csv', index=False)
+
     yield
     
     # Cleanup
-    for file in ['pledges.csv', 'Points.csv', 'PendingPoints.csv', 
-                 'pledge_points_graph.png', 'points_over_time.png']:
+    for file in ['pledges.csv', 'Points.csv', 'PendingPoints.csv',
+                 'pledge_points_graph.png', 'points_over_time.png', "Interviews.csv"]:
         if os.path.exists(file):
             os.remove(file)
     
@@ -302,4 +313,16 @@ def test_data_validation(setup_test_files):
     assert result == 0
     df = fn.get_points_csv()
     assert len(df.iloc[-1]['Comments']) <= 500
-  
+
+
+# Test quality and adding interview
+def test_interview_fetching(setup_test_files):
+    """Test interview fetching functions"""
+    # Make sure we get the right number of quality interviews
+    assert interviews.get_quality_interviews("TestPledge1") == 0
+    # Make sure that the add_interview function to work
+    assert interviews.add_interview("TestPledge1", "TestBrother2", 1, time.time()) == 0
+    # Make sure that the quality interview system works more now
+    assert interviews.get_quality_interviews("TestPledge1") == 1
+    assert interviews.add_interview("TestPledge1", "TestBrother2", "Q", time.time()) == 1
+    assert interviews.add_interview("Hello", "TestBrother2", "Q", time.time()) == 0
