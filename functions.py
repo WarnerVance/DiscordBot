@@ -2,15 +2,14 @@
 import os
 import time
 from datetime import datetime
-from logging import getLogger
 
 import discord
 import pandas as pd
 
-from interviews import logger
+from logging_config import setup_logging
 
 # Initialize logger for this module
-logger = getLogger(__name__)
+logger = setup_logging()
 
 def check_pledge(name):
     """
