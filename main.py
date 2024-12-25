@@ -425,9 +425,20 @@ async def getinterviews(interaction: discord.Interaction, pledge: str):
         return 0
     df = interviews.get_pledge_interviews(pledge)
     df.drop(columns="Pledge", inplace=True)
-    df["DateTime"] = pd.to_datetime(df["Time"], unit="s")
-    # df["Datetime"].dt.tz_localize(tz = "utc") # TODO: This line of code doesn't work, please fix it
-    await interaction.response.send_message(df)
+    Brothers = df["Brother"].tolist()
+    Quality = df["Quality"].tolist()
+    for i in range(len(Quality)):
+        if Quality[i] == 1:
+            Quality[i] = "Yes"
+        elif Quality[i] == 0:
+            Quality[i] = "No"
+        else:
+            Quality[i] = "Unknown"
+    response = f"Interviews for {pledge}:\n\n"
+    for i in range(len(Brothers)):
+        response += f"{i + 1}. "
+        response += f"Brother: {Brothers[i]}; Quality: {Quality[i]} \n"
+    await interaction.response.send_message(response)
 
 
 # Add reconnection logic
