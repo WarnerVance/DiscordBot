@@ -16,8 +16,8 @@ from discord import app_commands  # Discord slash commands
 from discord.ext import commands, tasks  # Discord bot commands and scheduled tasks
 from dotenv import load_dotenv
 
+import functions
 import functions as fn  # Custom functions for pledge management
-import interviews as interviews
 from logging_config import setup_logging  # Add this import
 
 # Get configured logger
@@ -370,7 +370,7 @@ async def addinterview(interaction: discord.Interaction, pledge: str, brother: s
         logger.error(f"Invalid quality: {quality}")
         return
     await interaction.response.send_message(
-        f"Added interview! Exit Code: {interviews.add_interview(pledge, brother, int(quality), time.time())}")
+        f"Added interview! Exit Code: {functions.add_interview(pledge, brother, int(quality), time.time())}")
 
 
 
@@ -382,7 +382,7 @@ async def getinterviewrankings(interaction: discord.Interaction):
         logger.warning(f"Brother {interaction} authentication failed")
         await interaction.response.send_message("Brother authentication failed.", ephemeral=True)
         return
-    rankings = interviews.interview_rankings()
+    rankings = functions.interview_rankings()
     Pledges = pd.Series(rankings).index.tolist()
     Numbers = pd.Series(rankings).values.tolist()
     response = ""
@@ -401,7 +401,7 @@ async def getinterviewsummary(interaction: discord.Interaction):
     if not await fn.check_brother_role(interaction):
         logger.warning(f"Brother {interaction} authentication failed")
         await interaction.response.send_message("Brother authentication failed.", ephemeral=True)
-    df = interviews.interview_summary()
+    df = functions.interview_summary()
     pledges = df["Pledge"].tolist()
     n_interviews = df["NumberOfInterviews"].tolist()
     n_quality = df["NQuality"].tolist()
@@ -423,7 +423,7 @@ async def getinterviews(interaction: discord.Interaction, pledge: str):
         logger.warning(f"Brother {interaction} authentication failed")
         await interaction.response.send_message("Brother authentication failed.", ephemeral=True)
         return 0
-    df = interviews.get_pledge_interviews(pledge)
+    df = functions.get_pledge_interviews(pledge)
     df.drop(columns="Pledge", inplace=True)
     Brothers = df["Brother"].tolist()
     Quality = df["Quality"].tolist()

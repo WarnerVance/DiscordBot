@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-import interviews as interviews
+import functions
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import functions as fn
@@ -319,10 +319,10 @@ def test_data_validation(setup_test_files):
 def test_interview_fetching(setup_test_files):
     """Test interview fetching functions"""
     # Make sure we get the right number of quality interviews
-    assert interviews.get_quality_interviews("TestPledge1") == 0
+    assert functions.get_quality_interviews("TestPledge1") == 0
     # Make sure that the add_interview function to work
-    assert interviews.add_interview("TestPledge1", "TestBrother2", 1, time.time()) == 0
+    assert functions.add_interview("TestPledge1", "TestBrother2", 1, time.time()) == 0
     # Make sure that the quality interview system works more now
-    assert interviews.get_quality_interviews("TestPledge1") == 1
-    assert interviews.add_interview("TestPledge1", "TestBrother2", "Q", time.time()) == 1
-    assert interviews.add_interview("Hello", "TestBrother2", "Q", time.time()) == 1
+    assert functions.get_quality_interviews("TestPledge1") == 1
+    assert functions.add_interview("TestPledge1", "TestBrother2", "Q", time.time()) == 1
+    assert functions.add_interview("Hello", "TestBrother2", "Q", time.time()) == 1
