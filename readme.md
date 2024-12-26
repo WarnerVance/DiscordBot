@@ -36,6 +36,13 @@ A Discord bot for managing pledge points and rankings.
 - `/show_logs` - View recent bot logs
 - `/shutdown` - Safely shutdown the bot (Admin only)
 
+### Interview Management
+
+- `/get_interviews` Get a list of interviews completed by a specific pledge
+- `/get_interview_rankings` Get a list of pledges by numbers of interviews
+- `/add_interview` A brother can add an interview with a specific pledge
+- `get_inteview summary`
+
 ## Requirements
 
 - Python 3.8+
