@@ -467,15 +467,21 @@ async def midnight_update():
         for guild in bot.guilds:
             general_channel = discord.utils.get(guild.text_channels, name='general')
             if general_channel:
+            channel_name = os.getenv("CHANNEL_NAME")
+            channel = discord.utils.get(guild.text_channels, name=str(channel_name))
+            if channel:
                 try:
-                    await general_channel.send(file=discord.File('Points.csv'))
+                    await channel.send(file=discord.File('Points.csv'))
+                    await channel.send(file=discord.File('interviews.csv'))
+                    await channel.send(file=discord.File('PendingPoints.csv.csv'))
+                    await channel.send(file=discord.File('pledges.csv'))
                     rankings = fn.get_ranked_pledges()
-                    await general_channel.send("Current Pledge Rankings:\n" + "\n".join(rankings))
+                    await channel.send("Current Pledge Rankings:\n" + "\n".join(rankings))
                     logger.info(f"Successfully sent midnight update to {guild.name}")
                 except Exception as e:
                     logger.error(f"Error sending midnight update to {guild.name}: {str(e)}")
     except Exception as e:
-        logger.error(f"Error in midnight_update task: {str(e)}")
+        logger.error(f"Error in midnight_update task (probably not a channel named general: {str(e)}")
 
 
 @bot.tree.command(name="show_logs", description="Get bot logs (defaults to past 24 hours)")
