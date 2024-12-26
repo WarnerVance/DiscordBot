@@ -465,8 +465,6 @@ async def midnight_update():
 
         # Send updates to guilds
         for guild in bot.guilds:
-            general_channel = discord.utils.get(guild.text_channels, name='general')
-            if general_channel:
             channel_name = os.getenv("CHANNEL_NAME")
             channel = discord.utils.get(guild.text_channels, name=str(channel_name))
             if channel:
