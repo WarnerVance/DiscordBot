@@ -453,7 +453,7 @@ async def on_connect():
 
 
 # Modify the midnight_update task to include error handling
-@tasks.loop(time=[datetime_time(5, 0), datetime_time(6, 0)])
+@tasks.loop(time=datetime_time(6, 0))
 async def midnight_update():
     try:
         # Clean old logs first
