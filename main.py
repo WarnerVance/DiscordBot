@@ -201,7 +201,7 @@ async def getpoints(interaction: discord.Interaction, name: str, comment: str = 
 async def updatepoints(interaction: discord.Interaction, name: str, point_change: int, comment: str):
     if not await fn.check_brother_role(interaction):
         return
-
+    override_message = ""
     # Validate inputs
     name = name.strip()
     if not name:
@@ -213,8 +213,13 @@ async def updatepoints(interaction: discord.Interaction, name: str, point_change
         return
 
     if abs(point_change) > 35:
-        await interaction.response.send_message("Error: Point change cannot exceed 35 points at once!", ephemeral=True)
-        return
+        if fn.check_vp_internal_role(interaction):
+            override_message = "Point Change limit is 35, but limit is overwritten by VP-Internal role."
+            pass
+        else:
+            await interaction.response.send_message("Error: Point change cannot exceed 35 points at once!",
+                                                    ephemeral=True)
+            return
 
     if not comment or not comment.strip():
         await interaction.response.send_message("Error: A comment is required when changing points!", ephemeral=True)
@@ -230,6 +235,7 @@ async def updatepoints(interaction: discord.Interaction, name: str, point_change
             f"Change: {point_change:+d} points\n"
             f"Comment: {comment}\n"
             f"Status: Awaiting VP Internal approval"
+            f"Extra Messages: {override_message}"
         )
     else:
         await interaction.response.send_message(
