@@ -53,7 +53,11 @@ A Discord bot for managing pledge points and rankings.
 
 1. Clone the repository
 2. Install dependencies: `pip install -r requirements.txt`
-3. Configure bot token in environment variables
+3. Create .env file
+
+   Two pieces of information here: DISCORD_TOKEN and CHANNEL_NAME . The former is the discord API token generated and
+   the latter is the name of the channel where the midnight
+   update message is sent.
 4. Run the bot: `python main.py`
 
 ## Notes
