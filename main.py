@@ -411,7 +411,10 @@ async def getinterviewsummary(interaction: discord.Interaction):
         response += f"{i + 1}. "
         response += f"{pledges[i]}: {n_interviews[i]} interviews \n"
         response += f"      {n_quality[i]} quality interview(s) which is {percent_quality[i]}% of interviews\n"
-    await interaction.response.send_message(response)
+    try:
+        await interaction.response.send_message(response)
+    except discord.HTTPException as e:
+        await interaction.response.send_message(f"An error occurred: {str(e)}", ephemeral=True)
 
 
 @bot.tree.command(name="get_interviews", description="Get a list of all interviews for a specific pledge")
