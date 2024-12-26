@@ -383,13 +383,13 @@ async def getinterviewrankings(interaction: discord.Interaction):
         await interaction.response.send_message("Brother authentication failed.", ephemeral=True)
         return
     rankings = functions.interview_rankings()
-    Pledges = pd.Series(rankings).index.tolist()
-    Numbers = pd.Series(rankings).values.tolist()
+    pledges = pd.Series(rankings).index.tolist()
+    numbers = pd.Series(rankings).values.tolist()
     response = ""
     n = 0
-    for i in Pledges:
+    for i in pledges:
         response += f"{n + 1}. "
-        response += f"{i}: {Numbers[n]} interviews \n"
+        response += f"{i}: {numbers[n]} interviews \n"
         n += 1
     await interaction.response.send_message(response)
 
@@ -425,19 +425,19 @@ async def getinterviews(interaction: discord.Interaction, pledge: str):
         return 0
     df = functions.get_pledge_interviews(pledge)
     df.drop(columns="Pledge", inplace=True)
-    Brothers = df["Brother"].tolist()
-    Quality = df["Quality"].tolist()
-    for i in range(len(Quality)):
-        if Quality[i] == 1:
-            Quality[i] = "Yes"
-        elif Quality[i] == 0:
-            Quality[i] = "No"
+    brothers = df["Brother"].tolist()
+    quality = df["Quality"].tolist()
+    for i in range(len(quality)):
+        if quality[i] == 1:
+            quality[i] = "Yes"
+        elif quality[i] == 0:
+            quality[i] = "No"
         else:
-            Quality[i] = "Unknown"
+            quality[i] = "Unknown"
     response = f"Interviews for {pledge}:\n\n"
-    for i in range(len(Brothers)):
+    for i in range(len(brothers)):
         response += f"{i + 1}. "
-        response += f"Brother: {Brothers[i]}; Quality: {Quality[i]} \n"
+        response += f"Brother: {brothers[i]}; Quality: {quality[i]} \n"
     await interaction.response.send_message(response)
 
 
