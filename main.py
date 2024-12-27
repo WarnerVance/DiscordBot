@@ -16,7 +16,9 @@ from discord import app_commands  # Discord slash commands
 from discord.ext import commands, tasks  # Discord bot commands and scheduled tasks
 from dotenv import load_dotenv
 
-import functions
+import CheckRoles
+import Interviews
+import PointSystem
 import functions as fn  # Custom functions for pledge management
 from logging_config import setup_logging  # Add this import
 
@@ -128,7 +130,7 @@ async def pledge_name_autocomplete(
 ) -> list[app_commands.Choice[str]]:
     try:
         # Get list of pledges and filter based on current input
-        pledges = fn.get_pledges()
+        pledges = PointSystem.get_pledges()
         choices = [
             app_commands.Choice(name=pledge, value=pledge)
             for pledge in pledges
@@ -149,7 +151,7 @@ async def pledge_name_autocomplete(
 )
 @log_command()
 async def addpledge(interaction: discord.Interaction, name: str, comment: str = None):
-    if not await fn.check_brother_role(interaction):
+    if not await CheckRoles.check_brother_role(interaction):
         return
 
     # Validate name
@@ -183,12 +185,12 @@ async def addpledge(interaction: discord.Interaction, name: str, comment: str = 
 @app_commands.autocomplete(name=pledge_name_autocomplete)
 @log_command()
 async def getpoints(interaction: discord.Interaction, name: str, comment: str = None):
-    if not await fn.check_brother_role(interaction):
+    if not await CheckRoles.check_brother_role(interaction):
         return
     comment_text = f"\nComment: {comment}" if comment else ""
     caller = interaction.user.display_name
     await interaction.response.send_message(
-        f"{caller} checked: {name} has {fn.get_pledge_points(name)} points!{comment_text}")
+        f"{caller} checked: {name} has {PointSystem.get_pledge_points(name)} points!{comment_text}")
 
 
 @bot.tree.command(
@@ -199,7 +201,7 @@ async def getpoints(interaction: discord.Interaction, name: str, comment: str = 
 @app_commands.autocomplete(name=pledge_name_autocomplete)
 @log_command()
 async def updatepoints(interaction: discord.Interaction, name: str, point_change: int, comment: str):
-    if not await fn.check_brother_role(interaction):
+    if not await CheckRoles.check_brother_role(interaction):
         return
     override_message = ""
     # Validate inputs
@@ -213,7 +215,7 @@ async def updatepoints(interaction: discord.Interaction, name: str, point_change
         return
 
     if abs(point_change) > 35:
-        if fn.check_vp_internal_role(interaction):
+        if CheckRoles.check_vp_internal_role(interaction):
             override_message = "Point Change limit is 35, but limit is overwritten by VP-Internal role."
             pass
         else:
@@ -226,7 +228,7 @@ async def updatepoints(interaction: discord.Interaction, name: str, point_change
         return
 
     # Use add_pending_points instead of direct update
-    result = fn.add_pending_points(name, point_change, comment, interaction.user.display_name)
+    result = PointSystem.add_pending_points(name, point_change, comment, interaction.user.display_name)
     if result == 0:
         emoji = "🔺" if point_change > 0 else "🔻"
         await interaction.response.send_message(
@@ -250,26 +252,26 @@ async def updatepoints(interaction: discord.Interaction, name: str, point_change
 )
 @log_command()
 async def getpledges(interaction: discord.Interaction):
-    if not await fn.check_brother_role(interaction):
+    if not await CheckRoles.check_brother_role(interaction):
         return
-    await interaction.response.send_message(f"Pledges: {fn.get_pledges()}")
+    await interaction.response.send_message(f"Pledges: {PointSystem.get_pledges()}")
 
 
 @bot.tree.command(name="show_points_graph", description="Display current points distribution graph")
 @timeout_command()
 @log_command()
 async def getgraph(interaction: discord.Interaction):
-    if not await fn.check_brother_role(interaction):
+    if not await CheckRoles.check_brother_role(interaction):
         return
-    await interaction.response.send_message(file=discord.File(fn.get_points_graph()))
+    await interaction.response.send_message(file=discord.File(PointSystem.get_points_graph()))
 
 
 @bot.tree.command(name="show_pledge_ranking", description="Display current pledge rankings")
 @log_command()
 async def getranking(interaction: discord.Interaction):
-    if not await fn.check_brother_role(interaction):
+    if not await CheckRoles.check_brother_role(interaction):
         return
-    rankings = fn.get_ranked_pledges()
+    rankings = PointSystem.get_ranked_pledges()
     response = "\n".join(rankings)
     await interaction.response.send_message(f"Current Rankings:\n{response}")
 
@@ -278,7 +280,7 @@ async def getranking(interaction: discord.Interaction):
 @app_commands.autocomplete(name=pledge_name_autocomplete)
 @log_command()
 async def deletepledge(interaction: discord.Interaction, name: str):
-    if not await fn.check_brother_role(interaction):
+    if not await CheckRoles.check_brother_role(interaction):
         return
     await interaction.response.send_message(f"Exit Code: {fn.delete_pledge(name)}")
 
@@ -287,25 +289,25 @@ async def deletepledge(interaction: discord.Interaction, name: str):
 @app_commands.default_permissions()
 @log_command()
 async def getpointsfile(interaction: discord.Interaction):
-    if not await fn.check_brother_role(interaction):
+    if not await CheckRoles.check_brother_role(interaction):
         return
-    await interaction.response.send_message(file=discord.File(fn.get_points_file()))
+    await interaction.response.send_message(file=discord.File(PointSystem.get_points_file()))
 
 
 @bot.tree.command(name="show_points_history", description="Display a graph with points progression over time")
 @timeout_command()
 @log_command()
 async def getpointstime(interaction: discord.Interaction):
-    if not await fn.check_brother_role(interaction):
+    if not await CheckRoles.check_brother_role(interaction):
         return
-    await interaction.response.send_message(file=discord.File(fn.get_points_over_time()))
+    await interaction.response.send_message(file=discord.File(PointSystem.get_points_over_time()))
 
 
 @bot.tree.command(name="log_size", description="Get the current size of the bot's log file")
 @app_commands.default_permissions()
 @log_command()
 async def getlogsize(interaction: discord.Interaction):
-    if not await fn.check_brother_role(interaction):
+    if not await CheckRoles.check_brother_role(interaction):
         return
 
     try:
@@ -363,11 +365,11 @@ async def on_app_command_error(interaction: discord.Interaction, error: app_comm
 @app_commands.autocomplete(pledge=pledge_name_autocomplete)
 @log_command()
 async def addinterview(interaction: discord.Interaction, pledge: str, brother: str, quality: int):
-    if not await fn.check_brother_role(interaction):
+    if not await CheckRoles.check_brother_role(interaction):
         logger.warning(f"Brother {interaction} authentication failed")
         await interaction.response.send_message("Brother authentication failed.", ephemeral=True)
         return
-    if not fn.check_pledge(pledge):
+    if not CheckRoles.check_pledge(pledge):
         await interaction.response.send_message("Invalid pledge.")
         logger.error(f"Invalid pledge: {pledge}")
         return
@@ -376,7 +378,7 @@ async def addinterview(interaction: discord.Interaction, pledge: str, brother: s
         logger.error(f"Invalid quality: {quality}")
         return
     await interaction.response.send_message(
-        f"Added interview! Exit Code: {functions.add_interview(pledge, brother, int(quality), time.time())}")
+        f"Added interview! Exit Code: {Interviews.add_interview(pledge, brother, int(quality), time.time())}")
 
 
 
@@ -384,11 +386,11 @@ async def addinterview(interaction: discord.Interaction, pledge: str, brother: s
 @timeout_command()
 @log_command()
 async def getinterviewrankings(interaction: discord.Interaction):
-    if not await fn.check_brother_role(interaction):
+    if not await CheckRoles.check_brother_role(interaction):
         logger.warning(f"Brother {interaction} authentication failed")
         await interaction.response.send_message("Brother authentication failed.", ephemeral=True)
         return
-    rankings = functions.interview_rankings()
+    rankings = Interviews.interview_rankings()
     pledges = pd.Series(rankings).index.tolist()
     numbers = pd.Series(rankings).values.tolist()
     response = ""
@@ -404,10 +406,10 @@ async def getinterviewrankings(interaction: discord.Interaction):
 @timeout_command()
 @log_command()
 async def getinterviewsummary(interaction: discord.Interaction):
-    if not await fn.check_brother_role(interaction):
+    if not await CheckRoles.check_brother_role(interaction):
         logger.warning(f"Brother {interaction} authentication failed")
         await interaction.response.send_message("Brother authentication failed.", ephemeral=True)
-    df = functions.interview_summary()
+    df = Interviews.interview_summary()
     pledges = df["Pledge"].tolist()
     n_interviews = df["NumberOfInterviews"].tolist()
     n_quality = df["NQuality"].tolist()
@@ -428,11 +430,11 @@ async def getinterviewsummary(interaction: discord.Interaction):
 @timeout_command()
 @log_command()
 async def getinterviews(interaction: discord.Interaction, pledge: str):
-    if not await fn.check_brother_role(interaction):
+    if not await CheckRoles.check_brother_role(interaction):
         logger.warning(f"Brother {interaction} authentication failed")
         await interaction.response.send_message("Brother authentication failed.", ephemeral=True)
         return 0
-    df = functions.get_pledge_interviews(pledge)
+    df = Interviews.get_pledge_interviews(pledge)
     df.drop(columns="Pledge", inplace=True)
     brothers = df["Brother"].tolist()
     quality = df["Quality"].tolist()
@@ -479,7 +481,7 @@ async def midnight_update():
                     await channel.send(file=discord.File('interviews.csv'))
                     await channel.send(file=discord.File('PendingPoints.csv.csv'))
                     await channel.send(file=discord.File('pledges.csv'))
-                    rankings = fn.get_ranked_pledges()
+                    rankings = PointSystem.get_ranked_pledges()
                     await channel.send("Current Pledge Rankings:\n" + "\n".join(rankings))
                     logger.info(f"Successfully sent midnight update to {guild.name}")
                 except Exception as e:
@@ -491,7 +493,7 @@ async def midnight_update():
 @bot.tree.command(name="show_logs", description="Get bot logs (defaults to past 24 hours)")
 @app_commands.default_permissions()
 async def getlogs(interaction: discord.Interaction, hours: int = 24):
-    if not await fn.check_brother_role(interaction):
+    if not await CheckRoles.check_brother_role(interaction):
         return
 
     # Validate hours input
@@ -523,7 +525,7 @@ async def getlogs(interaction: discord.Interaction, hours: int = 24):
 @app_commands.default_permissions()
 @log_command()
 async def shutdown(interaction: discord.Interaction):
-    if not await fn.check_brother_role(interaction):
+    if not await CheckRoles.check_brother_role(interaction):
         return
 
     try:
@@ -570,7 +572,7 @@ async def main():
 @app_commands.default_permissions()
 @log_command()
 async def status(interaction: discord.Interaction):
-    if not await fn.check_brother_role(interaction):
+    if not await CheckRoles.check_brother_role(interaction):
         return
 
     try:
@@ -627,7 +629,7 @@ async def plot(interaction: discord.Interaction):
     Command to display an interactive plot showing pledge points over time
     """
     try:
-        if not await fn.check_brother_role(interaction):
+        if not await CheckRoles.check_brother_role(interaction):
             return
 
         # Check if required files exist
@@ -636,7 +638,7 @@ async def plot(interaction: discord.Interaction):
             return
 
         # Verify we have pledges
-        pledges = fn.get_pledges()
+        pledges = PointSystem.get_pledges()
         if not pledges:
             await interaction.response.send_message("No pledges found in the system.", ephemeral=True)
             return
@@ -658,10 +660,10 @@ async def plot(interaction: discord.Interaction):
 )
 @log_command()
 async def listpending(interaction: discord.Interaction):
-    if not await fn.check_brother_role(interaction):
+    if not await CheckRoles.check_brother_role(interaction):
         return
 
-    df = fn.get_pending_points_csv()
+    df = PointSystem.get_pending_points_csv()
     if df.empty:
         await interaction.response.send_message("No pending points changes.", ephemeral=True)
         return
@@ -692,7 +694,7 @@ async def listpending(interaction: discord.Interaction):
 )
 @log_command()
 async def approvepoints(interaction: discord.Interaction, indices: str):
-    if not await fn.check_vp_internal_role(interaction):
+    if not await CheckRoles.check_vp_internal_role(interaction):
         return
 
     # Parse indices
@@ -707,7 +709,7 @@ async def approvepoints(interaction: discord.Interaction, indices: str):
 
     responses = []
     for index in index_list:
-        success, message, point_data = fn.approve_pending_points(index)
+        success, message, point_data = PointSystem.approve_pending_points(index)
         if success:
             emoji = "🔺" if point_data['Point_Change'] > 0 else "🔻"
             responses.append(
@@ -730,7 +732,7 @@ async def approvepoints(interaction: discord.Interaction, indices: str):
 )
 @log_command()
 async def rejectpoints(interaction: discord.Interaction, indices: str):
-    if not await fn.check_vp_internal_role(interaction):
+    if not await CheckRoles.check_vp_internal_role(interaction):
         return
 
     # Parse indices
@@ -745,7 +747,7 @@ async def rejectpoints(interaction: discord.Interaction, indices: str):
 
     responses = []
     for index in index_list:
-        success, message, point_data = fn.reject_pending_points(index)
+        success, message, point_data = PointSystem.reject_pending_points(index)
         if success:
             emoji = "🔺" if point_data['Point_Change'] > 0 else "🔻"
             responses.append(

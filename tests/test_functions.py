@@ -9,6 +9,9 @@ import numpy as np
 import pandas as pd
 import pytest
 
+import CheckRoles
+import Interviews
+import PointSystem
 import functions
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -76,12 +79,12 @@ def test_file_creation(setup_test_files):
             os.remove(file)
     
     # Test get_points_csv creates file
-    df = fn.get_points_csv()
+    df = PointSystem.get_points_csv()
     assert os.path.exists('Points.csv')
     assert list(df.columns) == ["Time", "Name", "Point_Change", "Comments"]
     
     # Test get_pending_points_csv creates file
-    df = fn.get_pending_points_csv()
+    df = PointSystem.get_pending_points_csv()
     assert os.path.exists('PendingPoints.csv')
     assert list(df.columns) == ["Time", "Name", "Point_Change", "Comments", "Requester"]
 
@@ -95,11 +98,11 @@ def test_pledge_operations(setup_test_files):
     assert fn.add_pledge("Very" * 20) == 1  # Too long
     
     # Test checking pledges
-    assert fn.check_pledge("TestPledge1") == True
-    assert fn.check_pledge("NonexistentPledge") == False
+    assert CheckRoles.check_pledge("TestPledge1") == True
+    assert CheckRoles.check_pledge("NonexistentPledge") == False
     
     # Test getting pledges
-    pledges = fn.get_pledges()
+    pledges = PointSystem.get_pledges()
     assert "TestPledge1" in pledges
     assert "NewPledge" in pledges
     assert len(pledges) >= 4
@@ -107,46 +110,46 @@ def test_pledge_operations(setup_test_files):
     # Test deleting pledges
     assert fn.delete_pledge("TestPledge1") == 0
     assert fn.delete_pledge("NonexistentPledge") == 1
-    assert not fn.check_pledge("TestPledge1")
+    assert not CheckRoles.check_pledge("TestPledge1")
 
 # Test Points System
 def test_points_system(setup_test_files):
     """Test points management system"""
     # Test point updates
-    assert fn.update_points("TestPledge1", 5, "Test update") == 0
-    assert fn.update_points("NonexistentPledge", 5, "Test") == 1
-    assert fn.update_points("TestPledge1", "invalid", "Test") == 1
-    assert fn.update_points("TestPledge1", 5, "") == 1
+    assert PointSystem.update_points("TestPledge1", 5, "Test update") == 0
+    assert PointSystem.update_points("NonexistentPledge", 5, "Test") == 1
+    assert PointSystem.update_points("TestPledge1", "invalid", "Test") == 1
+    assert PointSystem.update_points("TestPledge1", 5, "") == 1
     
     # Test point retrieval
-    points = fn.get_pledge_points("TestPledge1")
+    points = PointSystem.get_pledge_points("TestPledge1")
     assert isinstance(points, (int, float, np.integer, np.floating))
     assert points == 15  # 10 from setup + 5 from update
-    assert fn.get_pledge_points("NonexistentPledge") is None
+    assert PointSystem.get_pledge_points("NonexistentPledge") is None
     
     # Test point retrieval with df 
-    df = fn.get_points_csv()
-    points = fn.get_pledge_points("TestPledge1", df)
+    df = PointSystem.get_points_csv()
+    points = PointSystem.get_pledge_points("TestPledge1", df)
     assert isinstance(points, (int, float, np.integer, np.floating))
     assert points == 15  # 10 from setup + 5 from update
-    assert fn.get_pledge_points("NonexistentPledge") is None
+    assert PointSystem.get_pledge_points("NonexistentPledge") is None
     del df
 
 # Test Pending Points System
 def test_pending_points_system(setup_test_files):
     """Test pending points functionality"""
     # Test adding pending points
-    assert fn.add_pending_points("TestPledge1", 5, "New pending", "TestBrother") == 0
-    assert fn.add_pending_points("NonexistentPledge", 5, "Test", "TestBrother") == 1
+    assert PointSystem.add_pending_points("TestPledge1", 5, "New pending", "TestBrother") == 0
+    assert PointSystem.add_pending_points("NonexistentPledge", 5, "Test", "TestBrother") == 1
     
     # Test approving points
-    success, message, data = fn.approve_pending_points(0)
+    success, message, data = PointSystem.approve_pending_points(0)
     assert success == True
     assert data['Point_Change'] == 5
     
     # Test rejecting points
-    assert fn.add_pending_points("TestPledge2", 5, "Test reject", "TestBrother") == 0
-    success, message, data = fn.reject_pending_points(0)
+    assert PointSystem.add_pending_points("TestPledge2", 5, "Test reject", "TestBrother") == 0
+    success, message, data = PointSystem.reject_pending_points(0)
     assert success == True
     assert data['Point_Change'] == 5
 
@@ -154,12 +157,12 @@ def test_pending_points_system(setup_test_files):
 def test_visualization_functions(setup_test_files):
     """Test graph generation functions"""
     # Test points graph
-    graph_file = fn.get_points_graph()
+    graph_file = PointSystem.get_points_graph()
     assert os.path.exists(graph_file)
     assert graph_file.endswith('.png')
     
     # Test points over time
-    timeline_file = fn.get_points_over_time()
+    timeline_file = PointSystem.get_points_over_time()
     assert os.path.exists(timeline_file)
     assert timeline_file.endswith('.png')
     
@@ -185,11 +188,11 @@ def test_graph_with_no_data(setup_test_files):
     df.to_csv("Points.csv", index=False)
     
     # Test points graph
-    graph_file = fn.get_points_graph()
+    graph_file = PointSystem.get_points_graph()
     assert os.path.exists(graph_file)
     
     # Test timeline graph
-    timeline_file = fn.get_points_over_time()
+    timeline_file = PointSystem.get_points_over_time()
     assert os.path.exists(timeline_file)
     
     # Verify images are valid
@@ -221,8 +224,8 @@ async def test_interactive_plot(setup_test_files):
 def test_graph_updates(setup_test_files):
     """Test that graphs update when data changes"""
     # Generate initial graphs
-    initial_points_graph = fn.get_points_graph()
-    initial_timeline = fn.get_points_over_time()
+    initial_points_graph = PointSystem.get_points_graph()
+    initial_timeline = PointSystem.get_points_over_time()
     
     # Record initial modification times
     initial_points_mtime = os.path.getmtime(initial_points_graph)
@@ -232,11 +235,11 @@ def test_graph_updates(setup_test_files):
     time.sleep(1)
     
     # Add new data
-    fn.update_points("TestPledge1", 25, "Test update")
+    PointSystem.update_points("TestPledge1", 25, "Test update")
     
     # Generate new graphs
-    new_points_graph = fn.get_points_graph()
-    new_timeline = fn.get_points_over_time()
+    new_points_graph = PointSystem.get_points_graph()
+    new_timeline = PointSystem.get_points_over_time()
     
     # Verify files were updated
     assert os.path.getmtime(new_points_graph) > initial_points_mtime
@@ -263,11 +266,11 @@ async def test_role_checking():
     mock_interaction.response.send_message = AsyncMock()
     
     # Test Brother role present
-    assert await fn.check_brother_role(mock_interaction) == True
+    assert await CheckRoles.check_brother_role(mock_interaction) == True
     
     # Test Brother role absent
     mock_interaction.user.roles = []
-    assert await fn.check_brother_role(mock_interaction) == False
+    assert await CheckRoles.check_brother_role(mock_interaction) == False
     
     # Test VP Internal role check
     vp_role = MagicMock()
@@ -276,25 +279,25 @@ async def test_role_checking():
     mock_interaction.user.roles = [vp_role]
     
     # Test VP Internal role present
-    assert await fn.check_vp_internal_role(mock_interaction) == True
+    assert await CheckRoles.check_vp_internal_role(mock_interaction) == True
     
     # Test VP Internal role absent
     mock_interaction.user.roles = []
-    assert await fn.check_vp_internal_role(mock_interaction) == False
+    assert await CheckRoles.check_vp_internal_role(mock_interaction) == False
 
 # Test Error Handling
 def test_error_handling(setup_test_files):
     """Test error handling in various scenarios"""
     # Test file operations with invalid permissions
     with patch('builtins.open', side_effect=PermissionError):
-        df = fn.get_points_csv()
+        df = PointSystem.get_points_csv()
         assert isinstance(df, pd.DataFrame)
         assert df.empty
     
     # Test with corrupted files
     with open('Points.csv', 'w') as f:
         f.write("corrupted,data\n")
-    df = fn.get_points_csv()
+    df = PointSystem.get_points_csv()
     assert isinstance(df, pd.DataFrame)
     assert list(df.columns) == ["Time", "Name", "Point_Change", "Comments"]
 
@@ -302,16 +305,16 @@ def test_error_handling(setup_test_files):
 def test_data_validation(setup_test_files):
     """Test input validation functions"""
     # Test point change validation
-    assert fn.update_points("TestPledge1", 35, "Valid") == 0
-    assert fn.update_points("TestPledge1", -35, "Valid") == 0
-    assert fn.update_points("TestPledge1", 36, "Invalid") == 1
-    assert fn.update_points("TestPledge1", -36, "Invalid") == 1
+    assert PointSystem.update_points("TestPledge1", 35, "Valid") == 0
+    assert PointSystem.update_points("TestPledge1", -35, "Valid") == 0
+    assert PointSystem.update_points("TestPledge1", 36, "Invalid") == 1
+    assert PointSystem.update_points("TestPledge1", -36, "Invalid") == 1
     
     # Test comment validation
     long_comment = "x" * 501
-    result = fn.update_points("TestPledge1", 5, long_comment)
+    result = PointSystem.update_points("TestPledge1", 5, long_comment)
     assert result == 0
-    df = fn.get_points_csv()
+    df = PointSystem.get_points_csv()
     assert len(df.iloc[-1]['Comments']) <= 500
 
 
@@ -319,13 +322,13 @@ def test_data_validation(setup_test_files):
 def test_interview_fetching(setup_test_files):
     """Test interview fetching functions"""
     # Make sure we get the right number of quality interviews
-    assert functions.get_quality_interviews("TestPledge1") == 0
+    assert Interviews.get_quality_interviews("TestPledge1") == 0
     # Make sure that the add_interview function to work
-    assert functions.add_interview("TestPledge1", "TestBrother2", 1, time.time()) == 0
+    assert Interviews.add_interview("TestPledge1", "TestBrother2", 1, time.time()) == 0
     # Make sure that the quality interview system works more now
-    assert functions.get_quality_interviews("TestPledge1") == 1
-    assert functions.add_interview("TestPledge1", "TestBrother2", "Q", time.time()) == 1
-    assert functions.add_interview("Hello", "TestBrother2", "Q", time.time()) == 1
+    assert Interviews.get_quality_interviews("TestPledge1") == 1
+    assert Interviews.add_interview("TestPledge1", "TestBrother2", "Q", time.time()) == 1
+    assert Interviews.add_interview("Hello", "TestBrother2", "Q", time.time()) == 1
 
 
 @pytest.fixture
@@ -344,50 +347,50 @@ class TestInterviewSystem:
     def test_get_pledge_interviews(self, setup_test_files):
         """Test getting interviews for a specific pledge"""
         # Test existing pledge
-        interviews = functions.get_pledge_interviews("TestPledge1")
+        interviews = Interviews.get_pledge_interviews("TestPledge1")
         assert isinstance(interviews, pd.DataFrame)
         assert 'Quality' in interviews.columns
 
         # Test non-existent pledge
-        result = functions.get_pledge_interviews("NonExistentPledge")
+        result = Interviews.get_pledge_interviews("NonExistentPledge")
         assert result == 1
 
     def test_get_brother_interviews(self, setup_test_files):
         """Test getting interviews conducted by a brother"""
         # Add test data
-        functions.add_interview("TestPledge1", "TestBrother", 1, time.time())
+        Interviews.add_interview("TestPledge1", "TestBrother", 1, time.time())
 
         # Test existing brother
-        interviews = functions.get_brother_interviews("TestBrother")
+        interviews = Interviews.get_brother_interviews("TestBrother")
         assert isinstance(interviews, pd.DataFrame)
         assert not interviews.empty
         assert 'Pledge' in interviews.columns
 
         # Test brother with no interviews
-        empty_interviews = functions.get_brother_interviews("InactiveBrother")
+        empty_interviews = Interviews.get_brother_interviews("InactiveBrother")
         assert isinstance(empty_interviews, pd.DataFrame)
         assert empty_interviews.empty
 
     def test_interview_rankings(self, setup_test_files, mock_interview_data):
         """Test interview ranking functionality"""
         # Test with provided DataFrame
-        rankings = functions.interview_rankings(mock_interview_data)
+        rankings = Interviews.interview_rankings(mock_interview_data)
         assert isinstance(rankings, pd.Series)
 
         # Test with default file reading
-        rankings_default = functions.interview_rankings()
+        rankings_default = Interviews.interview_rankings()
         assert isinstance(rankings_default, pd.Series) or rankings_default == 1
 
     def test_interview_summary(self, setup_test_files):
         """Test interview summary generation"""
         # Add test interviews
         current_time = time.time()
-        functions.add_interview("TestPledge1", "Brother1", 1, current_time)
-        functions.add_interview("TestPledge1", "Brother2", 0, current_time)
-        functions.add_interview("TestPledge2", "Brother1", 1, current_time)
+        Interviews.add_interview("TestPledge1", "Brother1", 1, current_time)
+        Interviews.add_interview("TestPledge1", "Brother2", 0, current_time)
+        Interviews.add_interview("TestPledge2", "Brother1", 1, current_time)
 
         # Test summary generation
-        summary = functions.interview_summary()
+        summary = Interviews.interview_summary()
         print(summary)
         assert isinstance(summary, pd.DataFrame)
         assert all(col in summary.columns for col in
@@ -404,25 +407,25 @@ class TestInterviewSystem:
         current_time = time.time()
 
         # Test empty fields
-        assert functions.add_interview("", "Brother1", 1, current_time) == 1
-        assert functions.add_interview("TestPledge1", "", 1, current_time) == 1
-        assert functions.add_interview("TestPledge1", "Brother1", 1, "") == 1
+        assert Interviews.add_interview("", "Brother1", 1, current_time) == 1
+        assert Interviews.add_interview("TestPledge1", "", 1, current_time) == 1
+        assert Interviews.add_interview("TestPledge1", "Brother1", 1, "") == 1
 
         # Test invalid quality values
-        assert functions.add_interview("TestPledge1", "Brother1", 2, current_time) == 1
-        assert functions.add_interview("TestPledge1", "Brother1", -1, current_time) == 1
-        assert functions.add_interview("TestPledge1", "Brother1", "invalid", current_time) == 1
+        assert Interviews.add_interview("TestPledge1", "Brother1", 2, current_time) == 1
+        assert Interviews.add_interview("TestPledge1", "Brother1", -1, current_time) == 1
+        assert Interviews.add_interview("TestPledge1", "Brother1", "invalid", current_time) == 1
 
     def test_brother_interview_rankings(self, setup_test_files):
         """Test brother interview ranking functionality"""
         # Add test data
         current_time = time.time()
-        functions.add_interview("TestPledge1", "Brother1", 1, current_time)
-        functions.add_interview("TestPledge2", "Brother1", 0, current_time)
-        functions.add_interview("TestPledge1", "Brother2", 1, current_time)
+        Interviews.add_interview("TestPledge1", "Brother1", 1, current_time)
+        Interviews.add_interview("TestPledge2", "Brother1", 0, current_time)
+        Interviews.add_interview("TestPledge1", "Brother2", 1, current_time)
 
         # Test rankings
-        rankings = functions.brother_interview_rankings()
+        rankings = Interviews.brother_interview_rankings()
         assert isinstance(rankings, pd.Series)
         assert "Brother1" in rankings.index.get_level_values('Brother')
 
@@ -432,7 +435,7 @@ class TestEdgeCases:
     def test_points_system_edge_cases(self, setup_test_files):
         """Test edge cases in points system"""
         # Test floating point values
-        assert functions.update_points("TestPledge1", 5.7, "Float test") == 0
+        assert PointSystem.update_points("TestPledge1", 5.7, "Float test") == 0
 
         # Test very long names
         assert functions.add_pledge("A" * 50) == 0  # Maximum length
@@ -440,25 +443,25 @@ class TestEdgeCases:
 
         # Test special characters in comments
         special_chars = "!@#$%^&*()_+-=[]{}|;:,.<>?"
-        assert functions.update_points("TestPledge1", 5, special_chars) == 0
+        assert PointSystem.update_points("TestPledge1", 5, special_chars) == 0
 
         # Test Unicode characters
         unicode_comment = "Test 测试 テスト"
-        assert functions.update_points("TestPledge1", 5, unicode_comment) == 0
+        assert PointSystem.update_points("TestPledge1", 5, unicode_comment) == 0
 
     def test_concurrent_updates(self, setup_test_files):
         """Test handling of concurrent updates"""
         # Simulate concurrent updates
         results = []
         for i in range(10):
-            result = functions.update_points("TestPledge1", 1, f"Concurrent update {i}")
+            result = PointSystem.update_points("TestPledge1", 1, f"Concurrent update {i}")
             results.append(result)
 
         # Verify all updates were successful
         assert all(result == 0 for result in results)
 
         # Verify final point total is correct
-        points = functions.get_pledge_points("TestPledge1")
+        points = PointSystem.get_pledge_points("TestPledge1")
         assert points == sum(1 for result in results if result == 0) + 10  # +10 from initial setup
 
     @pytest.mark.asyncio
@@ -471,5 +474,5 @@ class TestEdgeCases:
         mock_interaction.response = MagicMock()
         mock_interaction.response.send_message = AsyncMock()
 
-        assert await functions.check_brother_role(mock_interaction) == False
-        assert await functions.check_vp_internal_role(mock_interaction) == False
+        assert await CheckRoles.check_brother_role(mock_interaction) == False
+        assert await CheckRoles.check_vp_internal_role(mock_interaction) == False
