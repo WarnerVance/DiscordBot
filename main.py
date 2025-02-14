@@ -354,7 +354,7 @@ async def on_app_command_error(interaction: discord.Interaction, error: app_comm
     else:
         logger.error(f"Command error: {str(error)}")
         await interaction.response.send_message(
-            "❌ Oops! Something went wrong. Please try again later or contact an admin if the problem persists.",
+            "❌ Oops! Something went wrong. Please try again later or contact Warner if the problem persists.",
             ephemeral=True
         )
 

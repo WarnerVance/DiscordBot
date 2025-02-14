@@ -425,7 +425,16 @@ def get_pending_points_csv():
 
 def add_pending_points(name: str, point_change: int, comment: str, requester: str):
     """
-    Add a pending points change that requires VP Internal approval
+    Adds a record of pending point changes to the file "PendingPoints.csv". This function helps to
+    document the adjustments in points for the specified individual. It logs the event with details
+    such as the timestamp, individual's name, the point change amount, comments justifying the change,
+    and the requester of the operation.
+
+    :param name: A string indicating the pledges name whose points are to be modified.
+    :param point_change: An integer specifying the points to be added (positive) or removed (negative).
+    :param comment: A string providing additional information or justification for the point change.
+    :param requester: A string representing the name or identifier of the user requesting the change.
+    :return: An integer result. Returns 0 on successful addition and 1 in case of failure.
     """
     try:
         if not check_pledge(name):
@@ -488,7 +497,18 @@ def approve_pending_points(index: int) -> tuple[bool, str, dict]:
 
 def reject_pending_points(index: int) -> tuple[bool, str, dict]:
     """
-    Reject and remove a pending points change
+    Rejects a pending point from the CSV file at the specified index. If the index is invalid, an
+    error message and an empty dictionary will be returned. If the operation is successful, the
+    pending point will be removed from the file, and the operation details will be returned.
+
+    :param index: The index in the pending points DataFrame corresponding to the point to reject.
+                  Must be within the valid range of indices for the DataFrame.
+    :type index: int
+    :return: A tuple consisting of three elements:
+             - A boolean indicating the success of the operation.
+             - A message string providing details about the operation or error.
+             - A dictionary of the rejected point's data if successful or an empty dictionary on failure.
+    :rtype: tuple[bool, str, dict]
     """
     try:
         df_pending = get_pending_points_csv()

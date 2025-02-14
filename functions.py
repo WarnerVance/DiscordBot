@@ -118,7 +118,16 @@ def get_recent_logs(hours: int = 24) -> tuple[list[str], str]:
 
 def clean_old_logs():
     """
-    Delete log entries that are more than 3 days old from bot.log
+    Cleans up old log entries from the log file, retaining only log entries
+    that are within the last 3 days or cannot be parsed correctly. If no log
+    file exists, the function will log a warning and exit.
+
+    The function reads the entire log file, determines which entries are older
+    than the cutoff time (3 days ago), and rewrites the log file with only
+    recent or unparsed log lines. Any errors encountered during the parsing
+    process will be logged.
+
+    :return: None
     """
     try:
         if not os.path.exists('bot.log'):

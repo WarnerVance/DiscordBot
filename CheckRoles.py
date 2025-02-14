@@ -22,7 +22,14 @@ def check_pledge(name):
 
 async def check_vp_internal_role(interaction: discord.Interaction) -> bool:
     """
-    Verify if a user has the VP Internal role.
+    Checks if the user who triggered the interaction has the "VP Internal" role in their guild.
+
+    :param interaction: The interaction object representing the command or event in
+        Discord. This is used to access details about the user and their roles.
+    :type interaction: discord.Interaction
+    :return: Returns ``True`` if the user has the "VP Internal" role; otherwise, sends
+        an ephemeral message to the user and returns ``False``.
+    :rtype: bool
     """
     vp_role = discord.utils.get(interaction.guild.roles, name="VP Internal")
     if vp_role is None or vp_role not in interaction.user.roles:
