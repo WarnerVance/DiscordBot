@@ -66,8 +66,8 @@ A Discord bot for managing pledge points and rankings.
 - Points changes limited to ±35 points per update
 - Daily updates posted at 5:00 and 6:00 UTC
 - Comprehensive error handling and logging
-- Point changes require approval from a second Brother
-- Pending changes expire after 24 hours if not approved/rejected
+- Point changes require approval from VP-Internal
+
 
 ## Testing
 
